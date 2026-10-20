@@ -91,7 +91,7 @@ def tier_size_gb(key: str) -> int:
 class RunPodConfig(_Strict):
     api_key_env: str = "RUNPOD_API_KEY"
     cloud_type: Literal["SECURE", "COMMUNITY"] = "SECURE"
-    network_volume: str
+    network_volume: str | None  # None: no weights cache, download on every start
     network_volume_gb: PositiveInt = 100
     container_disk_gb: PositiveInt
 

@@ -42,6 +42,8 @@ class RunPod:
     # -- no network ---------------------------------------------------------------------
 
     def plan(self, spec: LaunchSpec) -> dict[str, Any]:
+        if not self.cfg.network_volume:
+            return self._body(spec, env=dict.fromkeys(spec.secret_env, MASK))
         return self._body(
             spec,
             env=dict.fromkeys(spec.secret_env, MASK),
@@ -55,8 +57,9 @@ class RunPod:
     # -- lifecycle ----------------------------------------------------------------------
 
     def create(self, spec: LaunchSpec, secrets: Mapping[str, str]) -> Deployment:
-        gpu_id = _gpu_id(spec)
-        volume_id, data_center = self._ensure_volume(gpu_id)
+        volume_id = data_center = None
+        if self.cfg.network_volume:
+            volume_id, data_center = self._ensure_volume(_gpu_id(spec))
         body = self._body(spec, env=dict(secrets), volume_id=volume_id, data_center=data_center)
         pod = self._request("POST", "/v2/pods", json=body).json()
         d = Deployment(
@@ -66,7 +69,7 @@ class RunPod:
             spec=spec,
             status=pod["status"],
             cost_per_hr=pod.get("cost"),
-            extra={"volume_id": volume_id, "data_center": data_center},
+            extra={"volume_id": volume_id, "data_center": data_center} if volume_id else {},
         )
         d.base_url = self.endpoint(d).base_url
         return d
@@ -136,23 +139,31 @@ class RunPod:
     # -- helpers ------------------------------------------------------------------------
 
     def _body(
-        self, spec: LaunchSpec, *, env: dict[str, str], volume_id: str, data_center: str
+        self,
+        spec: LaunchSpec,
+        *,
+        env: dict[str, str],
+        volume_id: str | None = None,
+        data_center: str | None = None,
     ) -> dict[str, Any]:
-        return {
+        body = {
             "name": f"thetaserve-{spec.name}",
             "image": spec.image,
             # A shell so "$VLLM_API_KEY" in the command expands from the pod's environment;
             # exec makes vLLM the process that receives stop signals.
             "entrypoint": ["/bin/bash", "-c"],
             "cmd": [f"exec {spec.command()}"],
-            "env": {"HF_HOME": HF_HOME, **env},
+            "env": env,
             "ports": [f"{spec.port}/http"],
             "disk": self.cfg.container_disk_gb,
             "cloud": self.cfg.cloud_type,
             "gpu": {"id": _gpu_id(spec), "count": 1},
-            "mounts": {"network": [{"volumeId": volume_id, "path": VOLUME_PATH}]},
-            "dataCenterIds": [data_center],
         }
+        if volume_id:
+            body["env"] = {"HF_HOME": HF_HOME, **env}
+            body["mounts"] = {"network": [{"volumeId": volume_id, "path": VOLUME_PATH}]}
+            body["dataCenterIds"] = [data_center]
+        return body
 
     def _ensure_volume(self, gpu_id: str) -> tuple[str, str]:
         """The cache volume in a data centre that has this GPU, creating one if needed."""

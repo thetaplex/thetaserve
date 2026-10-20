@@ -254,3 +254,19 @@ def test_missing_key_message(spec: LaunchSpec) -> None:
 def test_price_per_hour_uses_configured_cloud(runpod: RunPod, spec: LaunchSpec) -> None:
     respx.get(f"{API_URL}/v2/catalog/gpus/{GPU}").respond(json=_stock())
     assert runpod.price_per_hour(spec) == pytest.approx(0.49)
+
+
+@respx.mock
+def test_create_without_cache_volume_lets_runpod_place_the_pod(spec: LaunchSpec) -> None:
+    cfg = load_catalog().providers.runpod.model_copy(update={"network_volume": None})
+    create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod())
+
+    d = RunPod(cfg, "rp-key").create(spec, {"VLLM_API_KEY": "secret-key"})
+
+    body = json.loads(create.calls.last.request.content)
+    assert len(respx.calls) == 1
+    assert body["env"] == {"VLLM_API_KEY": "secret-key"}
+    assert "mounts" not in body
+    assert "dataCenterIds" not in body
+    assert d.extra == {}
+    assert "mounts" not in RunPod(cfg, None).plan(spec)
