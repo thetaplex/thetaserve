@@ -14,9 +14,11 @@ Store the Runpod API key and an optional Hugging Face token. Skips a prompt when
 
 ## up
 
-Launch a model. Without `--device`, `up` lists the three cheapest GPUs in stock that fit the
-model for `--use` and asks which to launch; `--yes` or `--dry-run` takes option 1. With
-`--device`, it resolves the catalogue profile instead.
+Launch a model. Without `--device`, `up` lists, for each weight precision (16, 8, 4 bits) and
+KV-cache precision (16-bit, FP8), the cheapest GPU in stock that fits the model at the
+`--use` context, and asks which to launch. The default is the recommended row: the cheapest
+that meets the use case's precision floor. `--yes` and `--dry-run` take it. With `--device`,
+`up` resolves the catalogue profile instead.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -24,7 +26,7 @@ model for `--use` and asks which to launch; `--yes` or `--dry-run` takes option 
 | `--model` | required | Model key from `list models`, or a Hugging Face repo such as `Qwen/Qwen3.8-27B` |
 | `--device` | none | Pin a device key from `list devices` and skip the options |
 | `--use` | `coding` | Preset from `presets.yaml`: `coding`, `chat`, `research` |
-| `--min-precision` | preset | `4bit`, `8bit` or `16bit`; lowest weight precision to consider |
+| `--min-precision` | none | `4bit`, `8bit` or `16bit`; hide lower weight precisions |
 | `--port` | `8000` | Port vLLM listens on, 1-65535 |
 | `--context` | profile or preset | Maximum context length in tokens |
 | `--kv-cache-dtype` | profile | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2` |
@@ -38,8 +40,8 @@ model for `--use` and asks which to launch; `--yes` or `--dry-run` takes option 
 
 Options are computed from the model's Hugging Face `config.json`, its quantised variants
 (GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes, and the Runpod GPU
-catalogue (NVIDIA only). Each GPU gets the highest-precision weights that fit; FP8 KV cache is
-not used on Ampere and FP4 weights only on Blackwell. Options need the Runpod key; a dry run
+catalogue (NVIDIA only). FP8 KV cache is not offered on Ampere and FP4 weights only on
+Blackwell. Options need the Runpod key; a dry run
 with `--device` does not.
 
 Steps: resolve and fit-check, print rate and confirm, generate and store a per-launch API key,

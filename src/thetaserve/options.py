@@ -143,24 +143,37 @@ def suggest(
     kv_cache_dtype: KvCacheDtype | None = None,
     min_bits: int | None = None,
 ) -> list[Option]:
-    """For each GPU in stock, the highest-precision weights that fit; cheapest GPU first."""
+    """The cheapest GPU in stock for each weight precision x KV-cache precision that fits.
+
+    Highest weight precision first, BF16 KV before FP8 KV. `min_bits` drops lower precisions;
+    the preset's floor only decides which option is recommended (see `recommended`).
+    """
     context = context or min(preset.min_context or facts.max_context, facts.max_context)
-    floor = min_bits or preset.min_bits
+    kv_choices: list[KvCacheDtype] = [kv_cache_dtype] if kv_cache_dtype else ["auto", "fp8"]
     found = []
-    for gpu in gpus:
-        if gpu.stock == 0:
-            continue
-        if option := _best_fit(facts, weights, gpu, context, kv_cache_dtype, floor):
-            found.append(option)
-    return sorted(found, key=lambda o: (o.gpu.price, -o.gpu.stock, -o.weights.bits))
+    for bits in sorted({w.bits for w in weights if w.bits >= (min_bits or 0)}, reverse=True):
+        for kv in kv_choices:
+            fits = [
+                option
+                for gpu in gpus
+                if gpu.stock and (option := _fit(facts, weights, gpu, bits, kv, context))
+            ]
+            if fits:
+                found.append(min(fits, key=lambda o: (o.gpu.price, -o.gpu.stock)))
+    return found
 
 
-def no_options(facts: ModelFacts, preset: Preset, context: int | None, min_bits: int | None) -> str:
+def recommended(found: list[Option], preset: Preset) -> int:
+    """Index of the cheapest option meeting the preset's precision floor, else the cheapest."""
+    meeting = [o for o in found if o.weights.bits >= preset.min_bits] or found
+    return found.index(min(meeting, key=lambda o: (o.gpu.price, -o.weights.bits)))
+
+
+def no_options(facts: ModelFacts, preset: Preset, context: int | None) -> str:
     context = context or min(preset.min_context or facts.max_context, facts.max_context)
     return (
-        f"no GPU in stock fits {facts.repo} at {context:,} tokens with at least "
-        f"{min_bits or preset.min_bits}-bit weights. Try --context, --min-precision or another "
-        "--use, or pin --device."
+        f"no GPU in stock fits {facts.repo} at {context:,} tokens. Try a smaller --context or "
+        "another --use, or pin --device."
     )
 
 
@@ -202,31 +215,26 @@ def to_spec(
     )
 
 
-def _best_fit(
+def _fit(
     facts: ModelFacts,
     weights: list[Weights],
     gpu: Gpu,
+    bits: int,
+    kv: KvCacheDtype,
     context: int,
-    kv_cache_dtype: KvCacheDtype | None,
-    floor: int,
 ) -> Option | None:
-    # FP8 KV cache on Ampere is unverified (DESIGN.md section 13), so it is never chosen there.
-    kv_choices: list[KvCacheDtype] = (
-        [kv_cache_dtype]
-        if kv_cache_dtype
-        else ["auto"]
-        if gpu.arch == "ampere"
-        else ["auto", "fp8"]
-    )
-    for w in sorted(weights, key=lambda w: -w.bits):
-        if w.bits < floor or (w.blackwell_only and gpu.arch != "blackwell"):
+    """The first `bits`-bit weights (most downloaded first) that fit on `gpu` with `kv`."""
+    # FP8 KV cache on Ampere is unverified (DESIGN.md section 13), so it is never offered there.
+    if kv != "auto" and gpu.arch == "ampere":
+        return None
+    for w in weights:
+        if w.bits != bits or (w.blackwell_only and gpu.arch != "blackwell"):
             continue
-        for kv in kv_choices:
-            fit = estimate(
-                w.gb, facts.kv_bytes_per_token, facts.kv_fixed_bytes, context, kv, gpu.vram_gb
-            )
-            if fit.fits:
-                return Option(gpu, w, context, kv, fit)
+        fit = estimate(
+            w.gb, facts.kv_bytes_per_token, facts.kv_fixed_bytes, context, kv, gpu.vram_gb
+        )
+        if fit.fits:
+            return Option(gpu, w, context, kv, fit)
     return None
 
 

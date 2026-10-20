@@ -33,7 +33,8 @@ Preparing the first real run showed three problems:
 
 [ADR 0001](../adr/0001-derive-launch-options.md) derives options instead, and `up` does this
 whenever `--device` is omitted. You name a model and a use case; thetaserve computes which
-weight variants fit on which GPUs in stock and suggests the cheapest few.
+weight variants fit on which GPUs in stock, and shows the cheapest GPU for every combination
+of weight precision and KV-cache precision ([ADR 0002](../adr/0002-options-for-every-precision.md)).
 
 Use cases replace tiers as the only opinionated table:
 
@@ -45,8 +46,10 @@ Use cases replace tiers as the only opinionated table:
 
 The 8-bit floor for coding is a judgement, not a measurement: an agent's long chains of exact
 tool calls suffer more from small errors than conversation does, and 4-bit would save only about
-$0.26/h on Qwen3.8-27B. `bench` is planned to measure 4-bit against 8-bit; the floor drops for a
-model family where 4-bit holds up.
+$0.26/h on Qwen3.8-27B. Because it is unmeasured, the floor only picks the recommended row;
+4-bit rows are still shown, labelled as below the floor, so you can make the trade yourself.
+`bench` is planned to measure 4-bit against 8-bit; the floor drops for a model family where
+4-bit holds up.
 
 Two things stay hand-written because no metadata holds them: vLLM's tool-call and reasoning
 parsers per model family, and the memory overhead, which is calibrated from measured runs.

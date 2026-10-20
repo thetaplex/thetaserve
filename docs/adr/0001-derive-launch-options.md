@@ -4,7 +4,8 @@ Date: 2026-10-20
 
 ## Status
 
-Accepted
+Accepted. Points 2 (precision floor) and 6 (ranking) amended by
+[ADR 0002](0002-options-for-every-precision.md).
 
 ## Context
 

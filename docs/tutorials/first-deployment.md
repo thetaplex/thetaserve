@@ -60,10 +60,12 @@ uv run thetaserve up --provider runpod --model qwen3.8-27b --dry-run
 ```
 
 thetaserve reads the model's metadata from Hugging Face and Runpod's GPU prices and stock, and
-lists the three cheapest GPUs in stock that fit the `coding` use case (128K context, at least
-8-bit weights). A typical first row is an NVIDIA A40 (48 GB) with `Qwen/Qwen3.8-27B-FP8`,
-38.7 of 44.2 GiB, $0.59/h. Below the table is the dry run for option 1: the `vllm serve` command
-and the request body with the API key shown as `****`. Nothing is created.
+lists the cheapest GPU in stock for each weight precision (16, 8, 4 bits) and KV-cache
+precision (16-bit, FP8) at the `coding` context of 128K tokens. The row marked `recommended`
+is the cheapest with at least 8-bit weights, typically an NVIDIA A40 (48 GB) with
+`Qwen/Qwen3.8-27B-FP8`, 38.7 of 44.2 GiB, $0.59/h. Below the table is the dry run for that row:
+the `vllm serve` command and the request body with the API key shown as `****`. Nothing is
+created.
 
 ## 5. Launch
 
@@ -71,8 +73,8 @@ and the request body with the API key shown as `****`. Nothing is created.
 uv run thetaserve up --provider runpod --model qwen3.8-27b
 ```
 
-The same table appears, followed by `Launch which option`. Press Enter for option 1, or type
-its number. thetaserve then creates the pod, waits for it to start, and waits while vLLM
+The same table appears, followed by `Launch which option`. Press Enter for the recommended
+row, or type another row's number. thetaserve then creates the pod, waits for it to start, and waits while vLLM
 downloads about 29 GiB of weights and loads them. Expect 5-15 minutes. When it prints `Ready.`
 you have a working endpoint.
 

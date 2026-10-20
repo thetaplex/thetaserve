@@ -9,7 +9,15 @@ from typer.testing import CliRunner
 
 from thetaserve.cli import app
 from thetaserve.config import Preset
-from thetaserve.options import HF_URL, ModelFacts, Weights, model_facts, quantization, suggest
+from thetaserve.options import (
+    HF_URL,
+    ModelFacts,
+    Weights,
+    model_facts,
+    quantization,
+    recommended,
+    suggest,
+)
 from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import API_URL
 
@@ -78,35 +86,46 @@ def test_quantization_labels(qc: dict[str, object] | None, expected: object) -> 
     assert quantization(qc) == expected
 
 
-def test_suggest_picks_best_precision_per_gpu_cheapest_first() -> None:
-    gpus = [
-        Gpu("NVIDIA L40S", 48, "ada", 1.09, 2),
-        Gpu("NVIDIA A40", 48, "ampere", 0.59, 3),
-        Gpu("NVIDIA RTX A6000", 48, "ampere", 0.59, 0),  # sold out
-        Gpu("NVIDIA A100 80GB PCIe", 80, "ampere", 1.79, 1),
-        Gpu("NVIDIA GeForce RTX 4090", 24, "ada", 0.34, 3),  # only 4-bit fits; below floor
-    ]
-    found = suggest(FACTS, WEIGHTS, gpus, CODING)
-    assert [(o.gpu.id, o.weights.label) for o in found] == [
-        ("NVIDIA A40", "fp8"),
-        ("NVIDIA L40S", "fp8"),
-        ("NVIDIA A100 80GB PCIe", "bf16"),
-    ]
-    assert found[0].fit.total_gb == pytest.approx(28.75 + 8 + 2)
+GPUS = [
+    Gpu("NVIDIA L40S", 48, "ada", 1.09, 2),
+    Gpu("NVIDIA A40", 48, "ampere", 0.59, 3),
+    Gpu("NVIDIA RTX A6000", 48, "ampere", 0.49, 0),  # sold out
+    Gpu("NVIDIA A100 80GB PCIe", 80, "ampere", 1.79, 1),
+    Gpu("NVIDIA H100 80GB HBM3", 80, "hopper", 2.99, 3),
+    Gpu("NVIDIA RTX A5000", 24, "ampere", 0.27, 1),
+    Gpu("NVIDIA GeForce RTX 4090", 24, "ada", 0.34, 3),
+]
 
 
-def test_fp8_kv_and_fp4_weights_only_where_supported() -> None:
-    gpus = [
-        Gpu("NVIDIA RTX A5000", 24, "ampere", 0.27, 1),
-        Gpu("NVIDIA GeForce RTX 4090", 24, "ada", 0.34, 3),
-        Gpu("NVIDIA RTX PRO 4000 Blackwell", 24, "blackwell", 0.57, 1),
+def test_cheapest_gpu_for_every_weight_and_kv_precision() -> None:
+    found = suggest(FACTS, WEIGHTS, GPUS, CODING)
+    assert [(o.weights.label, o.kv_cache_dtype, o.gpu.id) for o in found] == [
+        ("bf16", "auto", "NVIDIA A100 80GB PCIe"),
+        ("bf16", "fp8", "NVIDIA H100 80GB HBM3"),  # no FP8 KV on Ampere
+        ("fp8", "auto", "NVIDIA A40"),  # the A6000 is cheaper but sold out
+        ("fp8", "fp8", "NVIDIA L40S"),
+        ("int4", "auto", "NVIDIA A40"),
+        ("int4", "fp8", "NVIDIA L40S"),  # 18.1 + 4.0 + 2.0 GiB is over a 24 GB card's 22.1
     ]
-    found = {o.gpu.id: o for o in suggest(FACTS, WEIGHTS, gpus, CHAT)}
-    # INT4 + BF16 KV at 32K is 22.1 GiB, just over 24 x 0.92; Ampere may not use FP8 KV.
-    assert "NVIDIA RTX A5000" not in found
-    rtx4090 = found["NVIDIA GeForce RTX 4090"]
-    assert (rtx4090.weights.label, rtx4090.kv_cache_dtype) == ("int4", "fp8")
-    assert found["NVIDIA RTX PRO 4000 Blackwell"].weights.label == "int4"
+    assert found[2].fit.total_gb == pytest.approx(28.75 + 8 + 2)
+    assert recommended(found, CODING) == 2
+    # Chat allows 4-bit, but on the same A40 at the same price 8-bit wins.
+    assert recommended(found, CHAT) == 2
+    assert recommended(found[4:], CODING) == 0  # nothing meets the floor: cheapest
+
+
+def test_min_bits_drops_lower_precisions_and_fp4_needs_blackwell() -> None:
+    blackwell = Gpu("NVIDIA RTX PRO 4000 Blackwell", 24, "blackwell", 0.57, 1)
+    found = suggest(FACTS, WEIGHTS, [*GPUS, blackwell], CHAT, min_bits=8)
+    assert {o.weights.bits for o in found} == {16, 8}
+    four_bit = [o for o in suggest(FACTS, WEIGHTS, [blackwell], CHAT) if o.weights.bits == 4]
+    # At 32K with BF16 KV only the smaller FP4 weights fit 24 GB; with FP8 KV, INT4 (listed
+    # first) does.
+    assert [(o.weights.label, o.kv_cache_dtype) for o in four_bit] == [
+        ("nvfp4", "auto"),
+        ("int4", "fp8"),
+    ]
+    assert suggest(FACTS, WEIGHTS[-1:], GPUS, CHAT) == []  # NVFP4 only, no Blackwell
 
 
 def test_up_without_device_lists_options_and_dry_runs_the_first(
@@ -153,11 +172,14 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
             }
         )
         result = CliRunner().invoke(
-            app, ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--dry-run"]
+            app,
+            ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--dry-run"],
+            env={"COLUMNS": "200"},
         )
 
     assert result.exit_code == 0, result.output
     assert "NVIDIA A40" in result.output
+    assert "recommended" in result.output
     assert "MI300X" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output

@@ -37,7 +37,6 @@ HF_SECRET = "hf"  # noqa: S105 - name of a secrets-store entry, not a secret
 HF_ENV = "HF_TOKEN"
 RUNNING_TIMEOUT_S = 20 * 60
 READY_TIMEOUT_S = 40 * 60
-MAX_OPTIONS = 3
 _STOCK = {1: "low", 2: "medium", 3: "high"}
 
 NameArg = Annotated[str | None, typer.Argument(help="Deployment name; optional if only one.")]
@@ -314,39 +313,46 @@ def _pick(
             min_bits=min_bits,
         )
     if not found:
-        raise ResolveError(options.no_options(facts, preset, context, min_bits))
-    shown = found[:MAX_OPTIONS]
+        raise ResolveError(options.no_options(facts, preset, context))
+    best = options.recommended(found, preset)
 
     table = Table(title=f"{repo} for {use}, {catalog.providers.runpod.cloud_type} cloud")
-    for column in ("#", "GPU", "weights", "context", "KV cache", "memory (GiB)", "$/h", "stock"):
+    columns = ("#", "weights", "KV cache", "GPU", "memory (GiB)", "$/h", "stock", "note")
+    for column in columns:
         table.add_column(column, justify="right" if column in ("#", "$/h") else "left")
-    for i, o in enumerate(shown, 1):
+    for i, o in enumerate(found):
+        note = "recommended" if i == best else ""
+        if o.weights.bits < preset.min_bits:
+            note = f"below {use}'s {preset.min_bits}-bit floor"
         table.add_row(
-            str(i),
+            str(i + 1),
+            f"{o.weights.bits}-bit {o.weights.label}  {o.weights.repo}",
+            "8-bit fp8" if o.kv_cache_dtype.startswith("fp8") else "16-bit",
             f"{o.gpu.id} ({o.gpu.vram_gb:g} GB)",
-            f"{o.weights.label}  {o.weights.repo}",
-            f"{o.context:,}",
-            o.kv_cache_dtype,
             f"{o.fit.total_gb:.1f} of {o.fit.budget_gb:.1f}",
             f"{o.gpu.price:.2f}",
             _STOCK[o.gpu.stock],
+            note,
         )
     out.print(table)
+    out.print(f"Context {found[0].context:,} tokens for every option.")
     if preset.tools and "--tool-call-parser" not in common_args:
         out.print(
             f"[yellow]No tool-call parser is known for {repo}; tool calling will not work.[/yellow]"
         )
 
-    choice = 1
+    choice = best + 1
     while choose:
         choice = typer.prompt(
-            "Launch which option (billed until stopped; Ctrl-C to cancel)", default=1, type=int
+            "Launch which option (billed until stopped; Ctrl-C to cancel)",
+            default=best + 1,
+            type=int,
         )
-        if 1 <= choice <= len(shown):
+        if 1 <= choice <= len(found):
             break
-        err.print(f"Choose 1 to {len(shown)}.")
+        err.print(f"Choose 1 to {len(found)}.")
     return options.to_spec(
-        shown[choice - 1],
+        found[choice - 1],
         catalog,
         provider=provider,
         model=model,
