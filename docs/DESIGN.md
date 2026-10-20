@@ -21,7 +21,7 @@ Non-goals for v0.1:
 | Language / tooling | Python 3.13+, uv, hatchling build backend |
 | Platforms | Linux, macOS and Windows, including headless Linux (SSH, WSL, containers, CI). CI runs tests on all three |
 | Libraries | typer + rich (CLI), pydantic v2 (config models), pyyaml, httpx (RunPod + health checks), keyring (OS secret store), platformdirs (per-OS config/state paths) |
-| Extras | `aws` -> boto3. `dev` -> pytest, respx, moto, ruff, mypy |
+| Extras | `aws` -> boto3. Dev tools (pytest, respx, moto, ruff, mypy) are a `dev` dependency group, not a published extra. Each dependency is added in the milestone that first uses it |
 | License | Apache-2.0 |
 | Release | GitHub Actions + PyPI trusted publishing (no stored tokens). Claim the `thetaserve` name on PyPI early. |
 | Runtime | Official `vllm/vllm-openai` image, pinned to one version per profile set |
@@ -120,9 +120,10 @@ h100-80g:
 RunPod GPU type IDs above are from RunPod's GPU types reference. `arch` values: ampere, ada, hopper, blackwell.
 
 ### 5.2 models.yaml
-Profiles are keyed by memory tier, with optional per-architecture overrides.
+Profiles are keyed by memory tier, with optional per-architecture overrides. All memory sizes (`vram_gb`, `weights_gb`) are GiB; KV constants are bytes at BF16 and are halved for FP8 KV. `vllm_image` pins the image for the whole profile set. The block below is abridged; the catalogue in `src/thetaserve/catalog/` also carries `weights_gb` per tier and `kv_bytes_per_token` / `kv_fixed_bytes` per model.
 ```yaml
 schema_version: 1
+vllm_image: vllm/vllm-openai:TODO-pin
 qwen3.8-27b:
   hf_family: Qwen/Qwen3.8-27B
   min_vllm: "0.17"
@@ -216,9 +217,10 @@ Before provisioning it prints the hourly rate. It streams progress and fails ear
 ```python
 class Provider(Protocol):
     name: str
+
     def create(self, spec: LaunchSpec) -> Deployment: ...
     def wait_running(self, d: Deployment, timeout_s: int) -> Deployment: ...
-    def endpoint(self, d: Deployment) -> Endpoint: ...   # base_url, needs_tunnel
+    def endpoint(self, d: Deployment) -> Endpoint: ...  # base_url, needs_tunnel
     def logs(self, d: Deployment, follow: bool) -> Iterator[str]: ...
     def stop(self, d: Deployment) -> None: ...
     def start(self, d: Deployment) -> None: ...
@@ -258,7 +260,7 @@ Result file: `results/<model>/<device>-<provider>-<date>.json` with profile hash
 ## 11. Repository layout
 ```
 thetaserve/
-  pyproject.toml  README.md  LICENSE  CLAUDE.md
+  pyproject.toml  uv.lock  justfile  README.md  LICENSE  CHANGELOG.md  CLAUDE.md
   src/thetaserve/
     __init__.py  cli.py  config.py  profiles.py  state.py  secrets.py  health.py  bench.py
     providers/  base.py  runpod.py  aws.py

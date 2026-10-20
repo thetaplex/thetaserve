@@ -1,0 +1,67 @@
+[project]
+name = "thetaserve"
+version = "0.0.1"
+description = "Launch open-weight models with vLLM on rented GPUs and get a secured OpenAI-compatible endpoint."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "ThetaPlex" }]
+requires-python = ">=3.13"
+keywords = ["vllm", "llm", "gpu", "runpod", "openai", "inference"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "platformdirs>=4.3",
+    "pydantic>=2.11",
+    "pyyaml>=6.0.2",
+    "rich>=14.0",
+    "typer>=0.16",
+]
+
+[project.urls]
+Homepage = "https://github.com/thetaplex/thetaserve"
+Issues = "https://github.com/thetaplex/thetaserve/issues"
+Changelog = "https://github.com/thetaplex/thetaserve/blob/main/CHANGELOG.md"
+
+[project.scripts]
+thetaserve = "thetaserve.cli:app"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16",
+    "pytest>=8.4",
+    "ruff>=0.12",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PT", "PTH", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+testpaths = ["tests"]
+xfail_strict = true

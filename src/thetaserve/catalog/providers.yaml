@@ -1,0 +1,12 @@
+runpod:
+  api_key_env: RUNPOD_API_KEY      # else keyring entry "thetaserve/runpod", else secrets file
+  cloud_type: SECURE               # or COMMUNITY
+  network_volume: thetaserve-cache # created on first use, per data centre
+  container_disk_gb: 40
+aws:
+  profile: thetaserve              # dedicated IAM user, minimal EC2 policy
+  region: us-east-1
+  ami_ssm: /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id
+  root_volume_gb: 200
+  ssh_key_name: thetaserve
+  allow_cidr: auto                 # caller's public IP /32

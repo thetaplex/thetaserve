@@ -5,13 +5,13 @@ Open-source CLI (PyPI) that launches open-weight models with vLLM on rented GPUs
 Read `docs/DESIGN.md` before making changes; it is the source of truth. Build in the milestone order in its section 12, starting with M0.
 
 ## Stack
-Python 3.13+, uv, hatchling, typer + rich, pydantic v2, pyyaml, httpx, keyring, platformdirs. Must run on Linux (including headless), macOS and Windows. Extras: `aws` (boto3), `dev` (pytest, respx, moto, ruff, mypy). Apache-2.0.
+Python 3.13+, uv, hatchling, typer + rich, pydantic v2, pyyaml, httpx, keyring, platformdirs. Must run on Linux (including headless), macOS and Windows. Extra: `aws` (boto3). Dev tools live in the `dev` dependency group. Apache-2.0.
 
 ## Commands
-- `uv sync --all-extras` - install
-- `uv run pytest` - tests
-- `uv run ruff check . && uv run ruff format .` - lint and format
-- `uv run thetaserve up --provider runpod --device a6000-48g --model qwen3.8-27b --port 8000 --dry-run`
+- `just setup` - install from the lockfile
+- `just check` - lint, format check, mypy, tests (what CI runs)
+- `just fmt` - format and apply safe lint fixes
+- `just run up --provider runpod --device a6000-48g --model qwen3.8-27b --port 8000 --dry-run`
 
 ## Rules
 - Tests never hit real provider APIs; mock with respx and moto.

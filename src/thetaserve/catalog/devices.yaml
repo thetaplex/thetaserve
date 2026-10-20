@@ -1,0 +1,34 @@
+# Logical GPU classes and the SKU each provider uses for them.
+# RunPod GPU type IDs are from RunPod's GPU types reference.
+# vram_gb is GPU memory in GiB. arch: ampere | ada | hopper | blackwell.
+a6000-48g:
+  vram_gb: 48
+  arch: ampere          # no native FP8
+  providers:
+    runpod: { gpu_type_id: "NVIDIA RTX A6000" }
+rtx6000ada-48g:
+  vram_gb: 48
+  arch: ada
+  providers:
+    runpod: { gpu_type_id: "NVIDIA RTX 6000 Ada Generation" }
+l40s-48g:
+  vram_gb: 48
+  arch: ada
+  providers:
+    runpod: { gpu_type_id: "NVIDIA L40S" }
+    aws:    { instance_type: g6e.xlarge }
+rtx4090-24g:
+  vram_gb: 24
+  arch: ada
+  providers:
+    runpod: { gpu_type_id: "NVIDIA GeForce RTX 4090" }
+a100-80g:
+  vram_gb: 80
+  arch: ampere
+  providers:
+    runpod: { gpu_type_id: "NVIDIA A100 80GB PCIe" }
+h100-80g:
+  vram_gb: 80
+  arch: hopper
+  providers:
+    runpod: { gpu_type_id: "NVIDIA H100 80GB HBM3" }
