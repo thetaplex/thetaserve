@@ -2,6 +2,7 @@ runpod:
   api_key_env: RUNPOD_API_KEY      # else keyring entry "thetaserve/runpod", else secrets file
   cloud_type: SECURE               # or COMMUNITY
   network_volume: thetaserve-cache # created on first use, per data centre
+  network_volume_gb: 100           # holds the Hugging Face cache; billed monthly while it exists
   container_disk_gb: 40
 aws:
   profile: thetaserve              # dedicated IAM user, minimal EC2 policy

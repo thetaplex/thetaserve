@@ -6,7 +6,7 @@
 
 One command to launch an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU and get back a secured, OpenAI-compatible endpoint.
 
-> **Status: pre-alpha.** Milestone M0 is done: the catalogues, the resolver and `up --dry-run` work. Launching on a provider arrives in M1. See the [build order](docs/DESIGN.md#12-build-order).
+> **Status: pre-alpha.** Launching on Runpod is implemented (milestone M1) but not yet run on real hardware, and the built-in profiles still hold `TODO` values until the M2 pilot, so `up` refuses them. Automatic idle stop arrives in M3: stop pods yourself. See the [build order](docs/DESIGN.md#12-build-order).
 
 ## Why
 
@@ -26,20 +26,30 @@ just setup
 
 ## Quickstart
 
-Show what would be launched for Qwen3.8-27B on a RunPod RTX A6000:
+Show what would be launched for Qwen3.8-27B on a Runpod RTX A6000:
 
 ```sh
 uv run thetaserve up --provider runpod --device a6000-48g --model qwen3.8-27b --port 8000 --dry-run
 ```
 
-This prints the resolved profile, the memory estimate and the exact `vllm serve` command. It needs no credentials and creates nothing.
+This prints the resolved profile, the memory estimate, the exact `vllm serve` command and the Runpod request body. It needs no credentials and creates nothing.
 
 ## Usage
 
 ```sh
 uv run thetaserve list models      # also: devices, providers
-uv run thetaserve up --help
+uv run thetaserve setup            # store your Runpod API key (and optional Hugging Face token)
+uv run thetaserve up --provider runpod --device a6000-48g --model qwen3.8-27b
+uv run thetaserve status           # endpoint, uptime, cost so far
+eval "$(uv run thetaserve env)"    # OPENAI_BASE_URL and OPENAI_API_KEY for your tools
+uv run thetaserve logs -f
+uv run thetaserve stop             # pause compute, keep the weights cache
+uv run thetaserve down             # destroy the pod; add --purge to delete the cache volume
 ```
+
+On Windows, `thetaserve env` prints PowerShell syntax; run `uv run thetaserve env | Invoke-Expression`.
+
+Secrets are read from `RUNPOD_API_KEY` and `HF_TOKEN` first, then the system keyring. Where no keyring exists (headless Linux, containers), `setup` stores them in a mode-600 file and says so.
 
 `up` options: `--context` overrides the profile's context length, `--kv-cache-dtype` the KV-cache precision, and `--extra-arg` (repeatable) passes extra flags to vLLM. `--force` skips the memory-fit check.
 

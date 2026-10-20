@@ -218,20 +218,27 @@ Before provisioning it prints the hourly rate. It streams progress and fails ear
 class Provider(Protocol):
     name: str
 
-    def create(self, spec: LaunchSpec) -> Deployment: ...
+    def plan(
+        self, spec: LaunchSpec
+    ) -> dict[str, Any]: ...  # request body, secrets masked; no network
+    def create(self, spec: LaunchSpec, secrets: Mapping[str, str]) -> Deployment: ...
     def wait_running(self, d: Deployment, timeout_s: int) -> Deployment: ...
+    def refresh(self, d: Deployment) -> Deployment: ...  # current status and cost
     def endpoint(self, d: Deployment) -> Endpoint: ...  # base_url, needs_tunnel
-    def logs(self, d: Deployment, follow: bool) -> Iterator[str]: ...
-    def stop(self, d: Deployment) -> None: ...
-    def start(self, d: Deployment) -> None: ...
+    def logs(self, d: Deployment, follow: bool, tail: int = 100) -> Iterator[str]: ...
+    def stop(self, d: Deployment) -> Deployment: ...
+    def start(self, d: Deployment) -> Deployment: ...
     def destroy(self, d: Deployment, purge: bool = False) -> None: ...
     def price_per_hour(self, spec: LaunchSpec) -> float | None: ...
 ```
+Secrets are passed to `create` separately so `LaunchSpec` and the state file never hold them. The per-launch vLLM key is stored in the secrets store as `deployment/<name>/api-key` before the host is created, and deleted by `down`.
 
 ### 8.1 RunPod (core)
-- REST API for pods: create with GPU type ID, image, start command, env, port exposed as HTTP, container disk, network volume. **Verify exact endpoint and field names against RunPod's current API reference before coding.**
-- Endpoint: RunPod's HTTPS proxy URL for the exposed port. Streaming by default (proxy may time out long non-streaming requests).
-- Weights cache: network volume mounted at the Hugging Face cache path; volumes are per data centre, so place the pod where the volume is. If the GPU is sold out there, try the model's ordered fallback device list, then offer a volume in another data centre.
+- API: Runpod REST API v2, `https://api.runpod.io/v2`, Bearer auth; the spec is at `https://api.runpod.io/v2/openapi.json`. v1 (`rest.runpod.io/v1`) is legacy. Checked 2026-10-20; re-check against the spec when changing the adapter.
+- Calls: `POST /v2/pods` (create), `GET /v2/pods/{id}` (status, `cost` in USD/h), `POST /v2/pods/{id}/action` with `start`/`stop` (`409` if invalid for the current status), `DELETE /v2/pods/{id}`, `GET /v2/pods/{id}/logs` (Server-Sent Events, `data: {"line": ...}`), `GET|POST /v2/network-volumes`, `GET /v2/catalog/gpus/{id}?include=AVAILABILITY&product=POD` (price and per-data-centre stock). `429` is retried after `Retry-After`.
+- Create body: `gpu {id, count}`, `image`, `entrypoint ["/bin/bash","-c"]` + `cmd ["exec vllm serve ..."]` so `$VLLM_API_KEY` expands from the pod's env, `env`, `ports ["<port>/http"]`, `disk`, `cloud`, `mounts.network [{volumeId, path}]`, `dataCenterIds [<volume's data centre>]`. Create does not search for capacity or fall back to another GPU.
+- Endpoint: `https://<podId>-<port>.proxy.runpod.net/v1`. The proxy runs through Cloudflare with a 100 s timeout (`524`), so clients must stream long generations.
+- Weights cache: network volume mounted at `/runpod-volume`, with `HF_HOME` on it; volumes are per data centre, so place the pod where the volume is. On first use the volume is created in the data centre with the most stock for the GPU. If the GPU is sold out there, try the model's ordered fallback device list, then offer a volume in another data centre.
 - Resume: the same GPU type may be unavailable when a stopped pod restarts; the CLI then offers a fresh pod on the same volume.
 - Idle stop: the pod must stop itself. If vLLM exits, RunPod restarts the container, so exiting is not enough. **Open question:** does a pod receive a credential that can stop itself? If not, pass a separate limited API key as a secret.
 
@@ -285,7 +292,7 @@ thetaserve/
 | M6 | v0.1 release on PyPI (target 2026-12-07) | `pip install thetaserve` works from a clean machine |
 
 ## 13. Open questions (resolve in M1/M2)
-- RunPod REST API exact fields; proxy URL format; request timeout on the proxy.
+- ~~Runpod REST API exact fields; proxy URL format; request timeout on the proxy.~~ Resolved in M1 (section 8.1). Still to confirm on real hardware: that streamed responses survive past the proxy's 100 s timeout.
 - RunPod pod self-stop credential (section 8.1).
 - Exact FP8 and 4-bit repositories for both models; their quality.
 - vLLM version supporting both models; flags for disabling image input; Qwen reasoning and tool parsers; Gemma tool parser.

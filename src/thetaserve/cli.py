@@ -1,6 +1,12 @@
 """Command-line interface."""
 
+import json
+import os
 import re
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, NoReturn
 
@@ -9,9 +15,11 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from thetaserve import __version__
+from thetaserve import __version__, health, secrets, state
 from thetaserve.config import Catalog, ConfigError, load_catalog
-from thetaserve.profiles import LaunchSpec, Overrides, ResolveError, resolve
+from thetaserve.profiles import API_KEY_ENV, LaunchSpec, Overrides, ResolveError, resolve
+from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
+from thetaserve.state import Deployment, DeploymentNotFound
 
 app = typer.Typer(
     help="Launch open-weight models with vLLM on rented GPUs.",
@@ -24,6 +32,12 @@ err = Console(stderr=True)
 _DURATION = re.compile(r"(\d+)([smh])")
 _UNIT_S = {"s": 1, "m": 60, "h": 3600}
 MASK = "****"
+HF_SECRET = "hf"  # noqa: S105 - name of a secrets-store entry, not a secret
+HF_ENV = "HF_TOKEN"
+RUNNING_TIMEOUT_S = 20 * 60
+READY_TIMEOUT_S = 40 * 60
+
+NameArg = Annotated[str | None, typer.Argument(help="Deployment name; optional if only one.")]
 
 
 class KvDtype(StrEnum):
@@ -39,16 +53,32 @@ class Kind(StrEnum):
     providers = "providers"
 
 
+class Shell(StrEnum):
+    posix = "posix"
+    fish = "fish"
+    powershell = "powershell"
+    cmd = "cmd"
+
+
 def _fail(message: str, code: int = 1) -> NoReturn:
-    err.print(f"[red]error:[/red] {message}", highlight=False)
+    err.print(f"[red]error:[/red] {escape(message)}", highlight=False)
     raise typer.Exit(code)
 
 
-def _catalog() -> Catalog:
+@contextmanager
+def _errors() -> Iterator[None]:
+    """Turn expected failures into a one-line message and a non-zero exit."""
     try:
-        return load_catalog()
+        yield
     except ConfigError as exc:
         _fail(str(exc), code=2)
+    except (ResolveError, ProviderError, health.NotReady, DeploymentNotFound) as exc:
+        _fail(str(exc))
+
+
+def _catalog() -> Catalog:
+    with _errors():
+        return load_catalog()
 
 
 def parse_duration(value: str) -> int:
@@ -57,6 +87,20 @@ def parse_duration(value: str) -> int:
     if not parts or "".join(n + u for n, u in parts) != value:
         raise typer.BadParameter(f"{value!r} is not a duration like 30m, 10h or 1h30m")
     return sum(int(n) * _UNIT_S[u] for n, u in parts)
+
+
+def _human(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    return f"{minutes // 60}h{minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
+
+
+def _confirm(question: str, yes: bool) -> None:
+    if yes:
+        return
+    if not sys.stdin.isatty():
+        _fail(f"{question} Pass --yes to confirm when not running interactively.")
+    if not typer.confirm(question, default=False):
+        raise typer.Exit(1)
 
 
 def _version(show: bool) -> None:
@@ -72,6 +116,46 @@ def main(
     ] = False,
 ) -> None:
     pass
+
+
+@app.command()
+def setup() -> None:
+    """Store provider credentials and a Hugging Face token."""
+    catalog = _catalog()
+    env = catalog.providers.runpod.api_key_env
+    if os.environ.get(env):
+        out.print(f"Runpod API key: using ${env} from the environment.")
+    else:
+        existing = secrets.get(RUNPOD_SECRET)
+        hint = " (Enter keeps the stored one)" if existing else ""
+        key = typer.prompt(f"Runpod API key{hint}", default="", hide_input=True, show_default=False)
+        if key:
+            _stored("Runpod API key", secrets.put(RUNPOD_SECRET, key))
+        elif not existing:
+            out.print(f"[yellow]No Runpod key stored; set ${env} or run setup again.[/yellow]")
+
+    if os.environ.get(HF_ENV):
+        out.print(f"Hugging Face token: using ${HF_ENV} from the environment.")
+    else:
+        token = typer.prompt(
+            "Hugging Face token (optional, Enter to skip)",
+            default="",
+            hide_input=True,
+            show_default=False,
+        )
+        if token:
+            _stored("Hugging Face token", secrets.put(HF_SECRET, token))
+
+
+def _stored(what: str, where: secrets.Store) -> None:
+    if where == "keyring":
+        out.print(f"{what} stored in the system keyring.")
+    else:
+        out.print(
+            f"[yellow]{what} stored in {secrets.file_path()} as plaintext (mode 600); "
+            "no system keyring is available here.[/yellow]",
+            highlight=False,
+        )
 
 
 @app.command("list")
@@ -118,10 +202,11 @@ def up(
         bool, typer.Option("--dry-run", help="Print what would be launched; create nothing.")
     ] = False,
     force: Annotated[bool, typer.Option("--force", help="Skip the memory-fit check.")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask before launching.")] = False,
 ) -> None:
     """Launch a model on a rented GPU."""
     catalog = _catalog()
-    try:
+    with _errors():
         spec = resolve(
             catalog,
             provider=provider,
@@ -138,15 +223,87 @@ def up(
                 force=force,
             ),
         )
-    except ResolveError as exc:
-        _fail(str(exc))
+        adapter = get_provider(spec.provider, catalog)
 
-    if not dry_run:
-        _fail("launching is not implemented yet (milestone M1); use --dry-run")
-    _print_dry_run(spec)
+    if dry_run:
+        _print_dry_run(spec, adapter)
+        return
+
+    with _errors():
+        _launch(spec, adapter, yes)
 
 
-def _print_dry_run(spec: LaunchSpec) -> None:
+def _launch(spec: LaunchSpec, adapter: Provider, yes: bool) -> None:
+    if untested := [v for v in (spec.image, spec.repo) if "TODO" in v]:
+        _fail(
+            f"this profile is not tested yet ({', '.join(untested)}). Set real values in a "
+            "user models.yaml (see README) or wait for the M2 pilot."
+        )
+    if spec.name in state.load().deployments:
+        _fail(f"a deployment named {spec.name!r} exists; pass --name or `thetaserve down` it")
+
+    rate = adapter.price_per_hour(spec)
+    rate_text = f"${rate:.2f}/h" if rate is not None else "unknown rate"
+    out.print(f"{spec.model} on {spec.provider} {spec.device}: {rate_text}, billed until stopped.")
+    out.print(
+        "[yellow]Automatic idle stop is not implemented yet (M3); "
+        f"run `thetaserve stop {spec.name}` when done.[/yellow]"
+    )
+    _confirm("Launch?", yes)
+
+    api_key = secrets.new_api_key()
+    env = {API_KEY_ENV: api_key}
+    if hf := secrets.get(HF_SECRET, env=HF_ENV):
+        env[HF_ENV] = hf
+
+    # Store the key before creating anything, so a crash never leaves an unreachable host.
+    placeholder = Deployment(
+        name=spec.name, provider=spec.provider, provider_id="", spec=spec, status="NEW"
+    )
+    secrets.put(placeholder.secret_name, api_key)
+
+    with out.status("Creating host…"):
+        try:
+            d = adapter.create(spec, env)
+        except BaseException:
+            secrets.delete(placeholder.secret_name)
+            raise
+    state.put(d)
+    out.print(f"Created {spec.provider} pod {d.provider_id}.")
+
+    try:
+        with out.status("Waiting for the host to start…") as status:
+            d = adapter.wait_running(d, RUNNING_TIMEOUT_S)
+            state.put(d)
+            status.update("Loading the model (first start downloads the weights)…")
+            endpoint = adapter.endpoint(d)
+
+            def on_wait(elapsed: float, seen: str) -> None:
+                status.update(f"Loading the model… {_human(elapsed)} ({seen})")
+
+            health.wait_ready(endpoint.base_url, api_key, READY_TIMEOUT_S, on_wait=on_wait)
+    except (ProviderError, health.NotReady, KeyboardInterrupt) as exc:
+        err.print(
+            f"[red]error:[/red] {escape(str(exc) or 'interrupted')}\n"
+            f"The host is still running and billing. Inspect with `thetaserve logs {d.name}`; "
+            f"remove with `thetaserve down {d.name}`."
+        )
+        raise typer.Exit(1) from None
+
+    kv_tokens = health.kv_cache_tokens(adapter.logs(d, follow=False, tail=2000))
+    d.max_context = min(spec.max_model_len, kv_tokens) if kv_tokens else None
+    d.cost_per_hr = d.cost_per_hr or rate
+    state.put(d)
+
+    out.print(f"\n[green]Ready.[/green] {d.spec.repo} is serving at {endpoint.base_url}")
+    if kv_tokens is not None:
+        out.print(
+            f"KV cache holds {kv_tokens:,} tokens (configured context {spec.max_model_len:,})."
+        )
+    out.print(f"API key {secrets.mask(api_key)}. For export lines: thetaserve env {d.name}")
+
+
+def _print_dry_run(spec: LaunchSpec, adapter: Provider) -> None:
     fit = spec.fit
     summary = Table.grid(padding=(0, 2))
     for label, value in [
@@ -165,7 +322,7 @@ def _print_dry_run(spec: LaunchSpec) -> None:
         ),
         ("idle stop", f"{spec.idle_s // 60} min"),
         ("max life", f"{spec.max_life_s / 3600:g} h"),
-        ("secrets", ", ".join(f"{k}={MASK}" for k in spec.secret_env)),
+        ("secrets", ", ".join(f"{k}={MASK}" for k in spec.secret_env) + f", {HF_ENV} if set"),
     ]:
         summary.add_row(f"[bold]{label}[/bold]", escape(value))
 
@@ -173,4 +330,139 @@ def _print_dry_run(spec: LaunchSpec) -> None:
     out.print(summary)
     out.print("\n[bold]vLLM command[/bold]")
     out.print(spec.command(), markup=False, highlight=False, soft_wrap=True)
-    out.print("\n[dim]Provider request body: available with the provider adapters (M1).[/dim]")
+    out.print(f"\n[bold]{spec.provider} request[/bold]")
+    out.print_json(json.dumps(adapter.plan(spec)))
+
+
+def _deployment(name: str | None) -> tuple[Deployment, Provider]:
+    d = state.resolve_name(state.load(), name)
+    return d, get_provider(d.provider, _catalog())
+
+
+@app.command()
+def status(name: NameArg = None) -> None:
+    """Show deployments: status, endpoint, uptime and cost so far."""
+    with _errors():
+        deployments = state.load().deployments
+        if name is not None:
+            deployments = {name: state.resolve_name(state.load(), name)}
+    if not deployments:
+        out.print("No deployments. Launch one with `thetaserve up`.")
+        return
+
+    catalog = _catalog()
+    table = Table("name", "model / device", "status", "uptime", "rate", "cost so far", "endpoint")
+    now = datetime.now(UTC)
+    for d in deployments.values():
+        try:
+            d = get_provider(d.provider, catalog).refresh(d)
+            state.put(d)
+            shown = d.status
+        except ProviderError as exc:
+            shown = f"{d.status} (stale: {exc})"
+        up_s = (now - d.started_at).total_seconds() if d.started_at and d.status == "RUNNING" else 0
+        rate = f"${d.cost_per_hr:.2f}/h" if d.cost_per_hr else "-"
+        cost = f"${d.cost_per_hr * up_s / 3600:.2f}" if d.cost_per_hr and up_s else "-"
+        table.add_row(
+            d.name,
+            f"{d.spec.model} / {d.spec.device}",
+            shown,
+            _human(up_s) if up_s else "-",
+            rate,
+            cost,
+            d.base_url or "-",
+        )
+    out.print(table)
+    out.print("[dim]Cost so far counts the current run only, at the pod's current rate.[/dim]")
+
+
+@app.command()
+def env(
+    name: NameArg = None,
+    shell: Annotated[
+        Shell | None, typer.Option(help="Output syntax; defaults to your platform's shell.")
+    ] = None,
+) -> None:
+    """Print OPENAI_BASE_URL / OPENAI_API_KEY lines for clients and coding agents."""
+    with _errors():
+        d = state.resolve_name(state.load(), name)
+    key = secrets.get(d.secret_name)
+    if key is None or d.base_url is None:
+        _fail(f"no stored endpoint or key for {d.name!r}")
+    shell = shell or (Shell.powershell if os.name == "nt" else Shell.posix)
+    pairs = {"OPENAI_BASE_URL": d.base_url, "OPENAI_API_KEY": key}
+    for k, v in pairs.items():
+        match shell:
+            case Shell.posix:
+                line = f"export {k}='{v}'"
+            case Shell.fish:
+                line = f"set -gx {k} '{v}'"
+            case Shell.powershell:
+                line = f"$env:{k} = '{v}'"
+            case Shell.cmd:
+                line = f"set {k}={v}"
+        print(line)  # plain print: this output is meant to be eval'd, not styled
+
+
+@app.command()
+def logs(
+    name: NameArg = None,
+    follow: Annotated[bool, typer.Option("--follow", "-f", help="Keep streaming.")] = False,
+    tail: Annotated[int, typer.Option(min=0, max=5000, help="Lines of history.")] = 100,
+) -> None:
+    """Show the vLLM container's logs."""
+    with _errors():
+        d, adapter = _deployment(name)
+        try:
+            for line in adapter.logs(d, follow=follow, tail=tail):
+                print(line)
+        except KeyboardInterrupt:
+            pass
+
+
+@app.command()
+def stop(name: NameArg = None) -> None:
+    """Stop compute and keep the disk (cheap pause)."""
+    with _errors():
+        d, adapter = _deployment(name)
+        d = adapter.stop(d)
+        state.put(d)
+    out.print(f"Stopped {d.name} ({d.status}). Resume with `thetaserve start {d.name}`.")
+
+
+@app.command()
+def start(name: NameArg = None) -> None:
+    """Resume a stopped deployment."""
+    with _errors():
+        d, adapter = _deployment(name)
+        d = adapter.start(d)
+        state.put(d)
+    out.print(f"Starting {d.name} ({d.status}). Check with `thetaserve status {d.name}`.")
+
+
+@app.command()
+def down(
+    name: NameArg = None,
+    purge: Annotated[
+        bool, typer.Option("--purge", help="Also delete the weights cache volume.")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask first.")] = False,
+) -> None:
+    """Destroy the deployment's compute; the cache volume is kept unless --purge."""
+    with _errors():
+        d, adapter = _deployment(name)
+        if purge:
+            volume = d.extra.get("volume_id")
+            sharing = [
+                o.name
+                for o in state.load().deployments.values()
+                if o.name != d.name and volume and o.extra.get("volume_id") == volume
+            ]
+            if sharing:
+                _fail(f"cannot purge: the cache volume is also used by {', '.join(sharing)}")
+        what = "the pod and its cache volume" if purge else "the pod (cache volume kept)"
+        _confirm(f"Destroy {d.name}: {what}?", yes)
+        adapter.destroy(d, purge=purge)
+        state.remove(d.name)
+        secrets.delete(d.secret_name)
+    out.print(f"Destroyed {d.name}.")

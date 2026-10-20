@@ -71,12 +71,23 @@ def test_cli_dry_run_prints_command() -> None:
     assert "VLLM_API_KEY=****" in result.output
 
 
-def test_cli_without_dry_run_refuses() -> None:
+def test_cli_refuses_to_launch_untested_profile() -> None:
     result = runner.invoke(
         app, ["up", "--provider", "runpod", "--device", "a6000-48g", "--model", "qwen3.8-27b"]
     )
     assert result.exit_code == 1
-    assert "not implemented yet" in result.output
+    assert "not tested yet" in result.output
+
+
+def test_cli_dry_run_shows_masked_provider_request() -> None:
+    result = runner.invoke(
+        app,
+        ["up", "--provider", "runpod", "--device", "a6000-48g", "--model", "qwen3.8-27b",
+         "--dry-run"],
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    assert '"gpu": {' in result.output
+    assert '"VLLM_API_KEY": "****"' in result.output
 
 
 def test_cli_resolve_error_exits_nonzero() -> None:
