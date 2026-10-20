@@ -1,6 +1,7 @@
 """Runpod adapter, against the Runpod REST API v2 (https://api.runpod.io/v2/openapi.json)."""
 
 import json
+import re
 import time
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
@@ -9,9 +10,9 @@ from urllib.parse import quote
 
 import httpx
 
-from thetaserve.config import RunPodConfig
+from thetaserve.config import Arch, RunPodConfig
 from thetaserve.profiles import LaunchSpec
-from thetaserve.providers.base import Endpoint, ProviderError
+from thetaserve.providers.base import Endpoint, Gpu, ProviderError
 from thetaserve.state import Deployment
 
 API_URL = "https://api.runpod.io"
@@ -21,6 +22,9 @@ MASK = "****"
 POLL_S = 5.0
 _AVAILABILITY_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
 _FAILED = {"ERROR", "TERMINATED", "EXITED"}
+_POOL_ARCH: dict[str, Arch] = {
+    "AMPERE": "ampere", "ADA": "ada", "HOPPER": "hopper", "BLACKWELL": "blackwell"
+}  # fmt: skip
 
 
 class RunPod:
@@ -130,6 +134,22 @@ class RunPod:
                 raise
         except httpx.HTTPError as exc:
             raise ProviderError(f"Runpod logs request failed: {exc}") from exc
+
+    def gpus(self) -> list[Gpu]:
+        """NVIDIA GPU types offered for one-GPU pods, with this cloud's price and stock."""
+        listing = self._request(
+            "GET",
+            "/v2/catalog/gpus",
+            params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
+        ).json()
+        found = []
+        for g in listing["gpus"]:
+            price = (g.get("price") or {}).get(self.cfg.cloud_type.lower())
+            arch = _arch(g)
+            if g.get("manufacturer") == "NVIDIA" and price and arch and g.get("memory"):
+                stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
+                found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
+        return found
 
     def price_per_hour(self, spec: LaunchSpec) -> float | None:
         gpu = self._request("GET", f"/v2/catalog/gpus/{quote(_gpu_id(spec), safe='')}").json()
@@ -250,6 +270,15 @@ class RunPod:
                 return resp
             _raise(resp)
         raise AssertionError("unreachable")
+
+
+def _arch(gpu: dict[str, Any]) -> Arch | None:
+    # ponytail: the pool name is Runpod's serverless grouping, not a spec sheet; some cards sit
+    # in another architecture's pool. Blackwell is fixed up by name because FP4 weights need it;
+    # other mislabels only make the estimate more cautious. Use a real lookup if that bites.
+    if re.search(r"Blackwell|\bB[23]00\b", gpu.get("id", "")):
+        return "blackwell"
+    return _POOL_ARCH.get(str(gpu.get("pool")).split("_")[0])
 
 
 def _gpu_id(spec: LaunchSpec) -> str:

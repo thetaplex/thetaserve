@@ -34,12 +34,18 @@ uv run thetaserve up --provider runpod --device a6000-48g --model qwen3.8-27b --
 
 This prints the resolved profile, the memory estimate, the exact `vllm serve` command and the Runpod request body. It needs no credentials and creates nothing.
 
+Leave out `--device` to see the cheapest GPUs in stock that fit the model instead (needs your Runpod key; see `thetaserve setup`):
+
+```sh
+uv run thetaserve up --provider runpod --model qwen3.8-27b --use coding --dry-run
+```
+
 ## Usage
 
 ```sh
 uv run thetaserve list models      # also: devices, providers
 uv run thetaserve setup            # store your Runpod API key (and optional Hugging Face token)
-uv run thetaserve up --provider runpod --device a6000-48g --model qwen3.8-27b
+uv run thetaserve up --provider runpod --model qwen3.8-27b   # pick from the options
 uv run thetaserve status           # endpoint, uptime, cost so far
 eval "$(uv run thetaserve env)"    # OPENAI_BASE_URL and OPENAI_API_KEY for your tools
 uv run thetaserve logs -f

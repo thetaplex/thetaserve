@@ -84,6 +84,8 @@ flowchart LR
 ## 5. Configuration
 
 ### 5.1 devices.yaml
+> Superseded by [ADR 0001](adr/0001-derive-launch-options.md): `up` without `--device` derives options from live data. Sections 5.1, the tiers in 5.2, and rules 1-2 of section 6 apply only to pinned launches until they are removed.
+
 ```yaml
 a6000-48g:
   vram_gb: 48
@@ -171,6 +173,8 @@ aws:
 ```
 
 ## 6. Resolution rules
+> Rules 1-2 apply only with `--device`; see [ADR 0001](adr/0001-derive-launch-options.md).
+
 
 1. Tier = the largest tier whose size is <= the device's `vram_gb`. No tier fits -> error naming the smallest tier.
 2. Apply `arch_overrides[device.arch]` if present.

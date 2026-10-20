@@ -47,6 +47,19 @@ Tier selection: the largest tier not above the device's `vram_gb`.
 Fit check: `weights_gb + KV(max_model_len) + 2.0` ≤ `vram_gb × 0.92`, else `up` fails unless
 `--force`.
 
+## presets.yaml
+
+Use cases for `up --use`.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `<key>` | string | Preset name |
+| `min_context` | positive integer or `null` | Context in tokens; `null` for the model's maximum |
+| `tools` | boolean | Warn when no tool-call parser is known for the model |
+| `min_bits` | positive integer | Lowest weight precision considered |
+
+Built in: `coding` (131072, tools, 8), `chat` (32768, no tools, 4), `research` (`null`, tools, 8).
+
 ## providers.yaml
 
 `runpod`:

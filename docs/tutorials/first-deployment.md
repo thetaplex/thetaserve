@@ -33,34 +33,14 @@ Paste the Runpod key, then press Enter to skip the Hugging Face token.
 
 ## 3. Add the pilot settings
 
-The built-in model profiles still contain `TODO` values, and `up` refuses them. Create three
+The built-in vLLM image is still `TODO` until the pilot pins it, and `up` refuses it. Create two
 files in your user config directory (`~/.config/thetaserve/` on Linux,
 `~/Library/Application Support/thetaserve/` on macOS, `%LOCALAPPDATA%\thetaserve\` on Windows).
-
-`devices.yaml`:
-
-```yaml
-a40-48g:
-  vram_gb: 48
-  arch: ampere
-  providers:
-    runpod: { gpu_type_id: "NVIDIA A40" }
-```
 
 `models.yaml`:
 
 ```yaml
 vllm_image: vllm/vllm-openai:v0.32.0
-
-qwen3.8-27b:
-  hf_family: Qwen/Qwen3.8-27B
-  min_vllm: "0.17"
-  common_args: [--enable-prefix-caching, --reasoning-parser, qwen3,
-                --enable-auto-tool-choice, --tool-call-parser, qwen3_xml]
-  kv_bytes_per_token: 65536
-  kv_fixed_bytes: 0
-  tiers:
-    48g: { repo: Qwen/Qwen3.8-27B-FP8, weights_gb: 28.75, max_model_len: 131072, kv_cache_dtype: auto }
 ```
 
 `providers.yaml` (no cache volume, so nothing is billed after you remove the pod):
@@ -73,25 +53,28 @@ runpod:
   container_disk_gb: 50
 ```
 
-## 4. Check what will be launched
+## 4. See the options
 
 ```sh
-uv run thetaserve up --provider runpod --device a40-48g --model qwen3.8-27b --port 8000 --dry-run
+uv run thetaserve up --provider runpod --model qwen3.8-27b --dry-run
 ```
 
-You see the memory estimate (`weights 28.8 + KV 8.0 + overhead 2.0 = 38.8 of 44.2 GiB usable`),
-the `vllm serve` command and the request body with the API key shown as `****`. Nothing is
-created.
+thetaserve reads the model's metadata from Hugging Face and Runpod's GPU prices and stock, and
+lists the three cheapest GPUs in stock that fit the `coding` use case (128K context, at least
+8-bit weights). A typical first row is an NVIDIA A40 (48 GB) with `Qwen/Qwen3.8-27B-FP8`,
+38.7 of 44.2 GiB, $0.59/h. Below the table is the dry run for option 1: the `vllm serve` command
+and the request body with the API key shown as `****`. Nothing is created.
 
 ## 5. Launch
 
 ```sh
-uv run thetaserve up --provider runpod --device a40-48g --model qwen3.8-27b --port 8000
+uv run thetaserve up --provider runpod --model qwen3.8-27b
 ```
 
-thetaserve prints the hourly rate and asks `Launch?`. Answer `y`. It then creates the pod, waits
-for it to start, and waits while vLLM downloads about 29 GiB of weights and loads them. Expect
-5-15 minutes. When it prints `Ready.` you have a working endpoint.
+The same table appears, followed by `Launch which option`. Press Enter for option 1, or type
+its number. thetaserve then creates the pod, waits for it to start, and waits while vLLM
+downloads about 29 GiB of weights and loads them. Expect 5-15 minutes. When it prints `Ready.`
+you have a working endpoint.
 
 ## 6. Use it
 
@@ -117,5 +100,5 @@ Answer `y`. `uv run thetaserve status` now reports no deployments.
 
 - [Run without a cache volume](../how-to/run-without-cache-volume.md) explains what you set in
   step 3.
-- [How launch settings are chosen](../explanation/launch-settings.md) explains the profile you
-  wrote.
+- [How launch settings are chosen](../explanation/launch-settings.md) explains the options
+  table.

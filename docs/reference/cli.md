@@ -14,23 +14,33 @@ Store the Runpod API key and an optional Hugging Face token. Skips a prompt when
 
 ## up
 
-Launch a model.
+Launch a model. Without `--device`, `up` lists the three cheapest GPUs in stock that fit the
+model for `--use` and asks which to launch; `--yes` or `--dry-run` takes option 1. With
+`--device`, it resolves the catalogue profile instead.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--provider` | required | `runpod` |
-| `--device` | required | Device key from `list devices` |
-| `--model` | required | Model key from `list models` |
+| `--model` | required | Model key from `list models`, or a Hugging Face repo such as `Qwen/Qwen3.8-27B` |
+| `--device` | none | Pin a device key from `list devices` and skip the options |
+| `--use` | `coding` | Preset from `presets.yaml`: `coding`, `chat`, `research` |
+| `--min-precision` | preset | `4bit`, `8bit` or `16bit`; lowest weight precision to consider |
 | `--port` | `8000` | Port vLLM listens on, 1-65535 |
-| `--context` | profile | Maximum context length in tokens |
+| `--context` | profile or preset | Maximum context length in tokens |
 | `--kv-cache-dtype` | profile | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2` |
 | `--extra-arg` | none | Extra `vllm serve` argument; repeatable |
 | `--idle` | `30m` | Idle stop (watchdog not implemented yet, M3) |
 | `--max-life` | `10h` | Lifetime stop (watchdog not implemented yet, M3) |
-| `--name` | `<model>-<device>` | Deployment name |
+| `--name` | `<model>-<device>` or `<model>-<gpu>` | Deployment name |
 | `--dry-run` | off | Print the spec, `vllm serve` command and masked request; create nothing |
 | `--force` | off | Skip the memory-fit check |
 | `--yes`, `-y` | off | Do not ask before launching; required when not interactive |
+
+Options are computed from the model's Hugging Face `config.json`, its quantised variants
+(GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes, and the Runpod GPU
+catalogue (NVIDIA only). Each GPU gets the highest-precision weights that fit; FP8 KV cache is
+not used on Ampere and FP4 weights only on Blackwell. Options need the Runpod key; a dry run
+with `--device` does not.
 
 Steps: resolve and fit-check, print rate and confirm, generate and store a per-launch API key,
 create the pod, wait for `RUNNING` (20 min limit), wait for `GET /v1/models` (40 min limit),

@@ -1,0 +1,6 @@
+# Use-case presets for `up --use` (docs/adr/0001-derive-launch-options.md).
+# min_context: tokens, or null for the model's maximum. min_bits: lowest weight precision.
+# The min_bits floors are judgements, not measurements, until `bench` compares 4-bit with 8-bit.
+coding:   { min_context: 131072, tools: true,  min_bits: 8 }
+chat:     { min_context: 32768,  tools: false, min_bits: 4 }
+research: { min_context: null,   tools: true,  min_bits: 8 }

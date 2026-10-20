@@ -4,9 +4,9 @@ Serving a model well on one GPU means choosing a weight format, a context length
 precision that together fit in the GPU's memory, plus model-specific vLLM flags. This page
 explains how thetaserve makes those choices today and why that is changing.
 
-## Today: tiers
+## Pinned launches: tiers
 
-The M0/M1 resolver ([DESIGN.md](../DESIGN.md) section 6) works from two hand-written
+With `--device`, the M0/M1 resolver ([DESIGN.md](../DESIGN.md) section 6) works from two hand-written
 catalogues. `devices.yaml` gives each GPU its memory and architecture. `models.yaml` gives each
 model a profile per memory **tier** (24g, 48g, 80g): a repository, a context length and a
 KV-cache type. `up` picks the largest tier that fits the GPU, applies architecture overrides
@@ -29,11 +29,11 @@ Preparing the first real run showed three problems:
   `config.json` matches the hand-written one. GPU memory, architecture, price and stock come from
   Runpod's catalogue.
 
-## What replaces them
+## Options: what replaces them
 
-[ADR 0001](../adr/0001-derive-launch-options.md) (status: proposed) derives options instead.
-You name a model and a use case; thetaserve computes which weight variants fit on which GPUs in
-stock and suggests the cheapest few.
+[ADR 0001](../adr/0001-derive-launch-options.md) derives options instead, and `up` does this
+whenever `--device` is omitted. You name a model and a use case; thetaserve computes which
+weight variants fit on which GPUs in stock and suggests the cheapest few.
 
 Use cases replace tiers as the only opinionated table:
 

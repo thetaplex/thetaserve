@@ -121,13 +121,13 @@ def resolve(
     utilization = DEFAULT_GPU_MEMORY_UTILIZATION
 
     # 4. Memory-fit check.
-    kv_factor = 0.5 if kv_dtype.startswith("fp8") else 1.0
-    kv_bytes = (mod.kv_bytes_per_token * max_model_len + mod.kv_fixed_bytes) * kv_factor
-    fit = Fit(
-        weights_gb=tier.weights_gb,
-        kv_cache_gb=kv_bytes / GIB,
-        overhead_gb=DEFAULT_OVERHEAD_GB,
-        budget_gb=dev.vram_gb * utilization,
+    fit = estimate(
+        tier.weights_gb,
+        mod.kv_bytes_per_token,
+        mod.kv_fixed_bytes,
+        max_model_len,
+        kv_dtype,
+        dev.vram_gb,
     )
     if not fit.fits and not overrides.force:
         raise ResolveError(
@@ -138,17 +138,13 @@ def resolve(
         )
 
     # 5. vLLM arguments.
-    args = [
+    args = vllm_args(
         tier.repo,
-        "--port", str(port),
-        "--api-key", _API_KEY_REF,
-        "--max-model-len", str(max_model_len),
-        "--kv-cache-dtype", kv_dtype,
-        "--gpu-memory-utilization", str(utilization),
-        *mod.common_args,
-        *tier.extra_args,
-        *overrides.extra_args,
-    ]  # fmt: skip
+        port,
+        max_model_len,
+        kv_dtype,
+        [*mod.common_args, *tier.extra_args, *overrides.extra_args],
+    )
 
     return LaunchSpec(
         name=name or f"{model}-{device}",
@@ -169,6 +165,39 @@ def resolve(
         max_life_s=max_life_s,
         fit=fit,
     )
+
+
+def estimate(
+    weights_gb: float,
+    kv_bytes_per_token: int,
+    kv_fixed_bytes: int,
+    context: int,
+    kv_dtype: KvCacheDtype,
+    vram_gb: float,
+) -> Fit:
+    """Memory estimate: weights + KV cache for one full-length sequence + fixed overhead."""
+    kv_factor = 0.5 if kv_dtype.startswith("fp8") else 1.0
+    kv_bytes = (kv_bytes_per_token * context + kv_fixed_bytes) * kv_factor
+    return Fit(
+        weights_gb=weights_gb,
+        kv_cache_gb=kv_bytes / GIB,
+        overhead_gb=DEFAULT_OVERHEAD_GB,
+        budget_gb=vram_gb * DEFAULT_GPU_MEMORY_UTILIZATION,
+    )
+
+
+def vllm_args(
+    repo: str, port: int, context: int, kv_dtype: KvCacheDtype, extra: list[str]
+) -> list[str]:
+    return [
+        repo,
+        "--port", str(port),
+        "--api-key", _API_KEY_REF,
+        "--max-model-len", str(context),
+        "--kv-cache-dtype", kv_dtype,
+        "--gpu-memory-utilization", str(DEFAULT_GPU_MEMORY_UTILIZATION),
+        *extra,
+    ]  # fmt: skip
 
 
 def _apply_arch(tier: Tier, arch: Arch) -> Tier:

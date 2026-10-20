@@ -4,12 +4,24 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from thetaserve.config import Arch
 from thetaserve.profiles import LaunchSpec
 from thetaserve.state import Deployment
 
 
 class ProviderError(Exception):
     """A provider call failed; the message is safe to show the user."""
+
+
+@dataclass(frozen=True)
+class Gpu:
+    """One GPU type a provider offers for a single-GPU host."""
+
+    id: str  # provider's GPU type ID, e.g. "NVIDIA A40"
+    vram_gb: float
+    arch: Arch
+    price: float  # USD per hour
+    stock: int  # 0 none, 1 low, 2 medium, 3 high
 
 
 @dataclass(frozen=True)
