@@ -16,3 +16,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `thetaserve setup`, `up`, `status`, `env`, `logs`, `stop`, `start` and `down`.
 - A fresh API key for every launch; secrets from environment variables, the system keyring, or a mode-600 file when no keyring exists.
 - Local deployment state in the platform's state directory, without secrets.
+- `network_volume: null` in `providers.yaml` launches Runpod pods without a weights cache volume.
+- Documentation in `docs/`: tutorial, how-to guides, reference and explanation.
+- ADR 0001 (proposed): derive launch options from live model and GPU data.

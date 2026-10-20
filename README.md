@@ -6,7 +6,7 @@
 
 One command to launch an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU and get back a secured, OpenAI-compatible endpoint.
 
-> **Status: pre-alpha.** Launching on Runpod is implemented (milestone M1) but not yet run on real hardware, and the built-in profiles still hold `TODO` values until the M2 pilot, so `up` refuses them. Automatic idle stop arrives in M3: stop pods yourself. See the [build order](docs/DESIGN.md#12-build-order).
+> **Status: pre-alpha.** Launching on Runpod is implemented (milestone M1) but not yet run on real hardware, and the built-in profiles still hold `TODO` values until the M2 pilot, so `up` refuses them; the [tutorial](docs/tutorials/first-deployment.md) shows the settings to add. Automatic idle stop arrives in M3: stop pods yourself. See the [build order](docs/DESIGN.md#12-build-order).
 
 ## Why
 
@@ -53,11 +53,12 @@ Secrets are read from `RUNPOD_API_KEY` and `HF_TOKEN` first, then the system key
 
 `up` options: `--context` overrides the profile's context length, `--kv-cache-dtype` the KV-cache precision, and `--extra-arg` (repeatable) passes extra flags to vLLM. `--force` skips the memory-fit check.
 
-To add or override devices, models or providers, put a `devices.yaml`, `models.yaml` or `providers.yaml` in your user config directory (on Linux `~/.config/thetaserve/`). Entries there replace built-in entries with the same key.
+To add or override devices, models or providers, put a `devices.yaml`, `models.yaml` or `providers.yaml` in your user config directory (on Linux `~/.config/thetaserve/`). Entries there replace built-in entries with the same key. See [Override the catalogue](docs/how-to/override-catalogue.md).
 
 ## Links
 
-- [Design](docs/DESIGN.md)
+- [Documentation](docs/README.md): tutorial, how-to guides, reference, explanation
+- [Design](docs/DESIGN.md) and [decision records](docs/adr/)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 - [Security policy](SECURITY.md)
