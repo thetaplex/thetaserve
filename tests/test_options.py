@@ -64,6 +64,18 @@ def test_sliding_window_layers_add_a_fixed_amount() -> None:
     assert (facts.kv_bytes_per_token, facts.kv_fixed_bytes) == (per_layer, per_layer * 2 * 512)
 
 
+def test_gemma4_full_attention_layers_use_their_own_kv_heads_and_head_size() -> None:
+    config = {
+        "num_hidden_layers": 60, "num_attention_heads": 32, "num_key_value_heads": 16,
+        "head_dim": 256, "num_global_key_value_heads": 4, "global_head_dim": 512,
+        "sliding_window": 1024, "max_position_embeddings": 262144,
+        "layer_types": (["sliding_attention"] * 5 + ["full_attention"]) * 10,
+    }  # fmt: skip
+    facts = model_facts("google/gemma-4-31B-it", {"text_config": config})
+    # As in models.yaml: 10 x 4 x 512 x K,V x 2 B per token; 50 x 1024 x 16 x 256 x 2 x 2 fixed.
+    assert (facts.kv_bytes_per_token, facts.kv_fixed_bytes) == (81920, 838860800)
+
+
 @pytest.mark.parametrize(
     ("qc", "expected"),
     [
@@ -75,6 +87,15 @@ def test_sliding_window_layers_add_a_fixed_amount() -> None:
                 "g0": {"format": "float-quantized", "weights": {"num_bits": 8}},
                 "g1": {"format": "nvfp4-pack-quantized", "weights": {"num_bits": 4}}}},
             ("nvfp4", 4, True),
+        ),
+        (
+            {"quant_method": "modelopt", "config_groups": {"g": {"weights": {"num_bits": 4}}}},
+            ("nvfp4", 4, True),
+        ),
+        ({"quant_method": "modelopt", "quant_algo": "FP8"}, ("fp8", 8, False)),
+        (
+            {"quant_method": "modelopt", "quant_algo": "W4A8_AWQ"},
+            None,
         ),
         (
             {"quant_method": "compressed-tensors", "config_groups": {

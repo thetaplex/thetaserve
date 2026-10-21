@@ -137,7 +137,7 @@ qwen3.8-27b:
     48g: { repo: TODO-FP8, max_model_len: 131072, kv_cache_dtype: auto }
     80g: { repo: TODO-FP8-or-BF16, max_model_len: 262144, kv_cache_dtype: auto }
 gemma4-31b:
-  hf_family: google/gemma-4-31b    # VERIFY exact repo
+  hf_family: google/gemma-4-31B-it   # verified 2026-10-21; quantisations are made from this
   min_vllm: TODO
   common_args: [--enable-prefix-caching]   # tool-call parser TODO
   tiers:

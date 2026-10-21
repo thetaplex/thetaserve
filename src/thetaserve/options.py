@@ -95,7 +95,15 @@ def model_facts(repo: str, config: dict[str, Any]) -> ModelFacts:
     try:
         heads = t["num_attention_heads"]
         head_dim = t.get("head_dim") or t["hidden_size"] // heads
-        per_layer = 2 * t.get("num_key_value_heads", heads) * head_dim * 2  # K and V, 2 B each
+        kv_heads = t.get("num_key_value_heads", heads)
+        per_layer = 2 * kv_heads * head_dim * 2  # K and V, 2 B each
+        # Gemma 4 gives full-attention layers their own KV heads and head size.
+        per_global = (
+            2
+            * (t.get("num_global_key_value_heads") or kv_heads)
+            * (t.get("global_head_dim") or head_dim)
+            * 2
+        )
         types = t.get("layer_types") or ["full_attention"] * t["num_hidden_layers"]
         max_context = t["max_position_embeddings"]
     except KeyError as exc:
@@ -105,7 +113,7 @@ def model_facts(repo: str, config: dict[str, Any]) -> ModelFacts:
     full = sum(kind == "full_attention" for kind in types)
     sliding = sum(kind == "sliding_attention" for kind in types)
     window = t.get("sliding_window") or 0
-    return ModelFacts(repo, max_context, per_layer * full, per_layer * sliding * window)
+    return ModelFacts(repo, max_context, per_global * full, per_layer * sliding * window)
 
 
 def quantization(qc: dict[str, Any] | None) -> tuple[str, int, bool] | None:
@@ -118,6 +126,15 @@ def quantization(qc: dict[str, Any] | None) -> tuple[str, int, bool] | None:
     if method in ("awq", "gptq"):
         bits = int(qc.get("bits", 4))
         return f"{method}-int{bits}", bits, False
+    if method == "modelopt":  # NVIDIA Model Optimizer: NVFP4 or FP8
+        groups = (qc.get("config_groups") or {}).values()
+        bits = min((int((g.get("weights") or {}).get("num_bits", 8)) for g in groups), default=0)
+        algo = str(qc.get("quant_algo", "")).upper()
+        if bits == 4 or "FP4" in algo:
+            return "nvfp4", 4, True
+        if bits == 8 or "FP8" in algo:
+            return "fp8", 8, False
+        return None
     if method == "compressed-tensors":
         groups = list((qc.get("config_groups") or {}).values())
         if not groups:
