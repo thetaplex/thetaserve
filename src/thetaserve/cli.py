@@ -334,11 +334,7 @@ def _pick(
     table.add_column("tok/s", justify="right")
     table.add_column("$/h", justify="right")
     table.add_column("stock")
-    table.add_column("note")
     for i, o in enumerate(found):
-        note = "recommended" if i == best else ""
-        if o.weights.bits < preset.min_bits:
-            note = f"below {use}'s {preset.min_bits}-bit floor"
         rate = options.tokens_per_s(o, catalog.bandwidth, gpus, weights)
         table.add_row(
             str(i + 1),
@@ -349,7 +345,6 @@ def _pick(
             f"~{rate:.0f}" if rate else "?",
             f"{o.gpu.price:.2f}",
             _STOCK[o.gpu.stock],
-            note,
         )
     out.print(table)
     out.print(

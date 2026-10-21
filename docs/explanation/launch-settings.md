@@ -46,8 +46,8 @@ Use cases replace tiers as the only opinionated table:
 
 The 8-bit floor for coding is a judgement, not a measurement: an agent's long chains of exact
 tool calls suffer more from small errors than conversation does, and 4-bit would save only about
-$0.26/h on Qwen3.8-27B. Because it is unmeasured, the floor only picks the recommended row;
-4-bit rows are still shown, labelled as below the floor, so you can make the trade yourself.
+$0.26/h on Qwen3.8-27B. Because it is unmeasured, the floor only picks the default row;
+4-bit rows are still listed, so you can make the trade yourself.
 `bench` is planned to measure 4-bit against 8-bit; the floor drops for a model family where
 4-bit holds up.
 

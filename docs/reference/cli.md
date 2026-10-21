@@ -16,7 +16,7 @@ Store the Runpod API key and an optional Hugging Face token. Skips a prompt when
 
 Launch a model. Without `--device`, `up` lists, for each weight precision (16, 8, 4 bits) and
 KV-cache precision (16-bit, FP8), the cheapest GPU in stock that fits the model at the
-`--use` context, and asks which to launch. The default is the recommended row: the cheapest
+`--use` context, cheapest first, and asks which to launch. The default is the cheapest row
 that meets the use case's precision floor. `--yes` and `--dry-run` take it. With `--device`,
 `up` resolves the catalogue profile instead.
 

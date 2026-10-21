@@ -148,8 +148,8 @@ def suggest(
 ) -> list[Option]:
     """The cheapest GPU in stock for each weight precision x KV-cache precision that fits.
 
-    Highest weight precision first, BF16 KV before FP8 KV. `min_bits` drops lower precisions;
-    the preset's floor only decides which option is recommended (see `recommended`).
+    Cheapest first; at the same price, higher weight precision, then BF16 KV before FP8 KV.
+    `min_bits` drops lower precisions; the preset's floor only picks the default (`recommended`).
     """
     context = context or min(preset.min_context or facts.max_context, facts.max_context)
     kv_choices: list[KvCacheDtype] = [kv_cache_dtype] if kv_cache_dtype else ["auto", "fp8"]
@@ -163,7 +163,7 @@ def suggest(
             ]
             if fits:
                 found.append(min(fits, key=lambda o: (o.gpu.price, -o.gpu.stock)))
-    return found
+    return sorted(found, key=lambda o: o.gpu.price)  # stable: keeps the precision order
 
 
 def recommended(found: list[Option], preset: Preset) -> int:

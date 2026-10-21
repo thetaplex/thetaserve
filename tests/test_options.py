@@ -102,18 +102,19 @@ GPUS = [
 def test_cheapest_gpu_for_every_weight_and_kv_precision() -> None:
     found = suggest(FACTS, WEIGHTS, GPUS, CODING)
     assert [(o.weights.label, o.kv_cache_dtype, o.gpu.id) for o in found] == [
+        ("fp8", "auto", "NVIDIA A40"),  # the A6000 is cheaper but sold out
+        ("int4", "auto", "NVIDIA A40"),  # same price: higher precision first
+        ("fp8", "fp8", "NVIDIA L40S"),
+        ("int4", "fp8", "NVIDIA L40S"),  # 18.1 + 4.0 + 2.0 GiB is over a 24 GB card's 22.1
         ("bf16", "auto", "NVIDIA A100 80GB PCIe"),
         ("bf16", "fp8", "NVIDIA H100 80GB HBM3"),  # no FP8 KV on Ampere
-        ("fp8", "auto", "NVIDIA A40"),  # the A6000 is cheaper but sold out
-        ("fp8", "fp8", "NVIDIA L40S"),
-        ("int4", "auto", "NVIDIA A40"),
-        ("int4", "fp8", "NVIDIA L40S"),  # 18.1 + 4.0 + 2.0 GiB is over a 24 GB card's 22.1
     ]
-    assert found[2].fit.total_gb == pytest.approx(28.75 + 8 + 2)
-    assert recommended(found, CODING) == 2
+    assert found[0].fit.total_gb == pytest.approx(28.75 + 8 + 2)
+    assert recommended(found, CODING) == 0
     # Chat allows 4-bit, but on the same A40 at the same price 8-bit wins.
-    assert recommended(found, CHAT) == 2
-    assert recommended(found[4:], CODING) == 0  # nothing meets the floor: cheapest
+    assert recommended(found, CHAT) == 0
+    int4_only = [o for o in found if o.weights.bits == 4]
+    assert recommended(int4_only, CODING) == 0  # nothing meets the floor: cheapest
 
 
 def test_min_bits_drops_lower_precisions_and_fp4_needs_blackwell() -> None:
@@ -181,7 +182,6 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
 
     assert result.exit_code == 0, result.output
     assert "NVIDIA A40" in result.output
-    assert "recommended" in result.output
     assert "tok/s" in result.output
     assert "MI300X" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output

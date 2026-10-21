@@ -56,7 +56,7 @@ Use cases for `up --use`.
 | `<key>` | string | Preset name |
 | `min_context` | positive integer or `null` | Context in tokens; `null` for the model's maximum |
 | `tools` | boolean | Warn when no tool-call parser is known for the model |
-| `min_bits` | positive integer | Precision floor for the recommended option; lower rows are labelled, not hidden |
+| `min_bits` | positive integer | Precision floor for the default option; lower rows are still listed |
 
 Built in: `coding` (131072, tools, 8), `chat` (32768, no tools, 4), `research` (`null`, tools, 8).
 
