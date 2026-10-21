@@ -20,6 +20,9 @@ from thetaserve.profiles import (
 from thetaserve.providers.base import Gpu
 
 HF_URL = "https://huggingface.co"
+# ponytail: share of peak memory bandwidth one vLLM request reaches while decoding. A guess
+# until `bench` measures it per GPU; replace with calibrated values then.
+DECODE_EFFICIENCY = 0.6
 _VARIANTS = 40  # most-downloaded quantisations of the base model to consider
 
 
@@ -167,6 +170,23 @@ def recommended(found: list[Option], preset: Preset) -> int:
     """Index of the cheapest option meeting the preset's precision floor, else the cheapest."""
     meeting = [o for o in found if o.weights.bits >= preset.min_bits] or found
     return found.index(min(meeting, key=lambda o: (o.gpu.price, -o.weights.bits)))
+
+
+def tokens_per_s(option: Option, bandwidth: dict[str, float], gpus: list[Gpu]) -> float | None:
+    """Estimated decode speed of one request: each token reads every weight once.
+
+    Ignores KV-cache reads, so it is an upper bound that falls as the context fills.
+    """
+    gpu = option.gpu
+    gbps = bandwidth.get(gpu.id)
+    if gbps is None and " MIG " in gpu.id:  # a slice gets its share of the parent's bandwidth
+        parent_id = gpu.id.split(" MIG ")[0]
+        parent = next((g for g in gpus if g.id == parent_id), None)
+        if parent and parent_id in bandwidth:
+            gbps = bandwidth[parent_id] * gpu.vram_gb / parent.vram_gb
+    if gbps is None:
+        return None
+    return DECODE_EFFICIENCY * gbps * 1e9 / (option.weights.gb * GIB)
 
 
 def no_options(facts: ModelFacts, preset: Preset, context: int | None) -> str:

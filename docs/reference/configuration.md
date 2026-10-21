@@ -60,6 +60,11 @@ Use cases for `up --use`.
 
 Built in: `coding` (131072, tools, 8), `chat` (32768, no tools, 4), `research` (`null`, tools, 8).
 
+## bandwidth.yaml
+
+GPU memory bandwidth in GB/s from vendor spec sheets, keyed by Runpod GPU ID, used only for the
+`tok/s` estimate. MIG slices take their parent's bandwidth in proportion to memory.
+
 ## providers.yaml
 
 `runpod`:

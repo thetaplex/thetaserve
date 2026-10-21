@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from thetaserve.cli import app
 from thetaserve.config import Preset
 from thetaserve.options import (
+    DECODE_EFFICIENCY,
     HF_URL,
     ModelFacts,
     Weights,
@@ -17,6 +18,7 @@ from thetaserve.options import (
     quantization,
     recommended,
     suggest,
+    tokens_per_s,
 )
 from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import API_URL
@@ -180,9 +182,25 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
     assert result.exit_code == 0, result.output
     assert "NVIDIA A40" in result.output
     assert "recommended" in result.output
+    assert "tok/s" in result.output
     assert "MI300X" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output
     body = json.loads(result.output[result.output.index("{") :])
     assert body["gpu"] == {"id": "NVIDIA A40", "count": 1}
     assert body["name"] == "thetaserve-qwen3.8-27b-a40"
+
+
+def test_tokens_per_s_reads_every_weight_once_and_slices_share_bandwidth() -> None:
+    a40 = suggest(FACTS, WEIGHTS[1:2], [Gpu("NVIDIA A40", 48, "ampere", 0.59, 3)], CODING)[0]
+    rate = tokens_per_s(a40, {"NVIDIA A40": 696}, [a40.gpu])
+    assert rate == pytest.approx(DECODE_EFFICIENCY * 696e9 / (28.75 * GIB))
+
+    parent = Gpu("NVIDIA B300 SXM6 AC", 288, "blackwell", 8.99, 0)
+    piece = Gpu("NVIDIA B300 SXM6 AC MIG 1g.36gb", 36, "blackwell", 0.5, 1)
+    sliced = suggest(FACTS, WEIGHTS[2:3], [parent, piece], CHAT)[0]
+    bandwidth = {"NVIDIA B300 SXM6 AC": 8000.0}
+    assert tokens_per_s(sliced, bandwidth, [parent, piece]) == pytest.approx(
+        DECODE_EFFICIENCY * 1000e9 / (18.12 * GIB)
+    )
+    assert tokens_per_s(sliced, {}, [parent, piece]) is None

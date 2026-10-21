@@ -17,7 +17,15 @@ from rich.table import Table
 
 from thetaserve import __version__, health, options, secrets, state
 from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
-from thetaserve.profiles import API_KEY_ENV, LaunchSpec, Overrides, ResolveError, resolve
+from thetaserve.profiles import (
+    API_KEY_ENV,
+    DEFAULT_GPU_MEMORY_UTILIZATION,
+    DEFAULT_OVERHEAD_GB,
+    LaunchSpec,
+    Overrides,
+    ResolveError,
+    resolve,
+)
 from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
 from thetaserve.providers.runpod import RunPod
 from thetaserve.state import Deployment, DeploymentNotFound
@@ -303,10 +311,11 @@ def _pick(
 
     with out.status(f"Finding GPUs and weights for {repo}…"):
         facts, weights = options.fetch_model(repo, secrets.get(HF_SECRET, env=HF_ENV))
+        gpus = adapter.gpus()
         found = options.suggest(
             facts,
             weights,
-            adapter.gpus(),
+            gpus,
             preset,
             context=context,
             kv_cache_dtype=kv_cache_dtype,
@@ -317,25 +326,39 @@ def _pick(
     best = options.recommended(found, preset)
 
     table = Table(title=f"{repo} for {use}, {catalog.providers.runpod.cloud_type} cloud")
-    columns = ("#", "weights", "KV cache", "GPU", "memory (GiB)", "$/h", "stock", "note")
-    for column in columns:
-        table.add_column(column, justify="right" if column in ("#", "$/h") else "left")
+    table.add_column("#", justify="right")
+    table.add_column("GPU", no_wrap=True)
+    table.add_column("weights")
+    table.add_column("KV cache", no_wrap=True)
+    table.add_column("memory (GiB)", no_wrap=True)
+    table.add_column("tok/s", justify="right")
+    table.add_column("$/h", justify="right")
+    table.add_column("stock")
+    table.add_column("note")
     for i, o in enumerate(found):
         note = "recommended" if i == best else ""
         if o.weights.bits < preset.min_bits:
             note = f"below {use}'s {preset.min_bits}-bit floor"
+        rate = options.tokens_per_s(o, catalog.bandwidth, gpus)
         table.add_row(
             str(i + 1),
+            f"{o.gpu.id} ({o.gpu.vram_gb:g} GB)",
             f"{o.weights.bits}-bit {o.weights.label}  {o.weights.repo}",
             "8-bit fp8" if o.kv_cache_dtype.startswith("fp8") else "16-bit",
-            f"{o.gpu.id} ({o.gpu.vram_gb:g} GB)",
             f"{o.fit.total_gb:.1f} of {o.fit.budget_gb:.1f}",
+            f"~{rate:.0f}" if rate else "?",
             f"{o.gpu.price:.2f}",
             _STOCK[o.gpu.stock],
             note,
         )
     out.print(table)
-    out.print(f"Context {found[0].context:,} tokens for every option.")
+    out.print(
+        f"memory = weights + KV cache for one {found[0].context:,}-token sequence + "
+        f"{DEFAULT_OVERHEAD_GB:g} GiB overhead, of VRAM x "
+        f"{DEFAULT_GPU_MEMORY_UTILIZATION:g} usable.\n"
+        f"tok/s = one request at short context, {options.DECODE_EFFICIENCY:.0%} of memory "
+        "bandwidth / weight size; an estimate, not yet measured."
+    )
     if preset.tools and "--tool-call-parser" not in common_args:
         out.print(
             f"[yellow]No tool-call parser is known for {repo}; tool calling will not work.[/yellow]"

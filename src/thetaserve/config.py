@@ -125,6 +125,7 @@ class Catalog(_Strict):
     models: dict[str, Model]
     providers: Providers
     presets: dict[str, Preset]
+    bandwidth: dict[str, PositiveFloat]  # GB/s per provider GPU ID
 
 
 def user_config_dir() -> Path:
@@ -139,6 +140,7 @@ def load_catalog(user_dir: Path | None = None) -> Catalog:
     models, model_src = _merged("models.yaml", user_dir)
     providers, provider_src = _merged("providers.yaml", user_dir)
     presets, preset_src = _merged("presets.yaml", user_dir)
+    bandwidth, bandwidth_src = _merged("bandwidth.yaml", user_dir)
 
     version = models.pop("schema_version", None)
     if version != SCHEMA_VERSION:
@@ -156,6 +158,7 @@ def load_catalog(user_dir: Path | None = None) -> Catalog:
         models=_validate(dict[str, Model], models, model_src),
         providers=_validate(Providers, providers, provider_src),
         presets=_validate(dict[str, Preset], presets, preset_src),
+        bandwidth=_validate(dict[str, PositiveFloat], bandwidth, bandwidth_src),
     )
 
 

@@ -41,7 +41,12 @@ that meets the use case's precision floor. `--yes` and `--dry-run` take it. With
 Options are computed from the model's Hugging Face `config.json`, its quantised variants
 (GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes, and the Runpod GPU
 catalogue (NVIDIA only). FP8 KV cache is not offered on Ampere and FP4 weights only on
-Blackwell. Options need the Runpod key; a dry run
+Blackwell.
+
+Columns: `memory` is weights + KV cache for one full-context sequence + 2 GiB overhead,
+against VRAM × 0.92. `tok/s` estimates one request at short context as 0.6 × memory bandwidth
+(`bandwidth.yaml`) ÷ weight size; `?` when the GPU's bandwidth is unknown. Neither is measured
+yet. Options need the Runpod key; a dry run
 with `--device` does not.
 
 Steps: resolve and fit-check, print rate and confirm, generate and store a per-launch API key,
