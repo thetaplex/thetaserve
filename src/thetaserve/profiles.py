@@ -48,12 +48,6 @@ class Fit(BaseModel):
     def fits(self) -> bool:
         return self.total_gb <= self.budget_gb
 
-    @property
-    def sequences(self) -> float:
-        """Full-length sequences the memory left after weights and overhead holds as KV cache."""
-        room = self.budget_gb - self.weights_gb - self.overhead_gb
-        return room / self.kv_cache_gb if self.kv_cache_gb else float("inf")
-
 
 class LaunchSpec(BaseModel):
     model_config = ConfigDict(frozen=True)

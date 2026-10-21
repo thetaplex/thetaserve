@@ -44,8 +44,7 @@ catalogue (NVIDIA only). FP8 KV cache is not offered on Ampere and FP4 weights o
 Blackwell.
 
 Columns: `memory` is weights + KV cache for one full-context sequence + 2 GiB overhead,
-against VRAM × 0.92. `sequences` is how many full-context sequences fit in the memory left after
-weights and overhead. `tok/s` estimates one request at short context as 0.6 × memory bandwidth
+against VRAM × 0.92. `tok/s` estimates one request at short context as 0.6 × memory bandwidth
 (`bandwidth.yaml`) ÷ weight size, timing weights below 8 bits as the smallest 8-bit variant;
 `?` when the GPU's bandwidth is unknown. None of these is measured yet. Options need the Runpod key; a dry run
 with `--device` does not.

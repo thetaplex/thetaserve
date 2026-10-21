@@ -55,10 +55,10 @@ $0.26/h on Qwen3.8-27B. Because it is unmeasured, the floor only picks the recom
 
 4-bit weights rarely make the cheaper GPU fit for coding. For Qwen3.8-27B at 128K they need
 24–30 GiB, more than the 22.1 GiB usable on a 24 GB card, and 24 GB cards on Runpod cost no
-less than a 48 GB A40. What 4-bit does buy is room on the same GPU. On an A40, FP8 weights leave
-KV cache for 1.7 full 128K sequences and 4-bit leaves 2.8. More room means more parallel agent
-sessions, more of each repeated prompt served from vLLM's prefix cache, or the model's full
-context on a cheap card. The `sequences` column shows this.
+less than a 48 GB A40. What 4-bit does buy is room on the same GPU. On an A40 at 128K, FP8 weights use
+38.7 of 44.2 GiB and 4-bit uses 29.6, so about 9 GiB more is left for vLLM's KV cache. More room
+means more parallel agent sessions, more of each repeated prompt served from vLLM's prefix
+cache, or the model's full context on a cheap card. The `memory` column shows the headroom.
 
 4-bit does not buy speed. Decoding is limited by memory bandwidth, and fewer bytes per weight
 should mean faster tokens, but unpacking 4-bit weights costs about as much as the smaller read

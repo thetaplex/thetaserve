@@ -20,7 +20,6 @@ from thetaserve.options import (
     suggest,
     tokens_per_s,
 )
-from thetaserve.profiles import DEFAULT_GPU_MEMORY_UTILIZATION, DEFAULT_OVERHEAD_GB
 from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import API_URL
 
@@ -184,7 +183,6 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
     assert "NVIDIA A40" in result.output
     assert "recommended" in result.output
     assert "tok/s" in result.output
-    assert "sequences" in result.output
     assert "MI300X" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output
@@ -208,11 +206,3 @@ def test_tokens_per_s_reads_every_weight_once_4bit_as_8bit_and_slices_share_band
     assert tokens_per_s(sliced, {}, [parent, piece], WEIGHTS) is None
     alone = tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS[2:3])  # no 8-bit to compare
     assert alone == pytest.approx(DECODE_EFFICIENCY * 1000e9 / (18.12 * GIB))
-
-
-def test_sequences_counts_full_length_kv_caches_left_after_weights() -> None:
-    a40 = Gpu("NVIDIA A40", 48, "ampere", 0.59, 3)
-    fp8, int4 = (suggest(FACTS, [w], [a40], CODING)[0] for w in WEIGHTS[1:3])
-    room = 48 * DEFAULT_GPU_MEMORY_UTILIZATION - DEFAULT_OVERHEAD_GB
-    assert fp8.fit.sequences == pytest.approx((room - 28.75) / 8.0)
-    assert int4.fit.sequences == pytest.approx((room - 18.12) / 8.0)
