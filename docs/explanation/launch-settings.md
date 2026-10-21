@@ -51,5 +51,25 @@ $0.26/h on Qwen3.8-27B. Because it is unmeasured, the floor only picks the recom
 `bench` is planned to measure 4-bit against 8-bit; the floor drops for a model family where
 4-bit holds up.
 
+## What 4-bit buys: room, not speed
+
+4-bit weights rarely make the cheaper GPU fit for coding. For Qwen3.8-27B at 128K they need
+24–30 GiB, more than the 22.1 GiB usable on a 24 GB card, and 24 GB cards on Runpod cost no
+less than a 48 GB A40. What 4-bit does buy is room on the same GPU. On an A40, FP8 weights leave
+KV cache for 1.7 full 128K sequences and 4-bit leaves 2.8. More room means more parallel agent
+sessions, more of each repeated prompt served from vLLM's prefix cache, or the model's full
+context on a cheap card. The `sequences` column shows this.
+
+4-bit does not buy speed. Decoding is limited by memory bandwidth, and fewer bytes per weight
+should mean faster tokens, but unpacking 4-bit weights costs about as much as the smaller read
+saves. imec's October 2026 study of Qwen3.8-27B on vLLM, run as a coding agent on an H200,
+measured 985 tok/s for FP8, 857 for BF16 and 808 for INT4 AWQ. The `tok/s` column therefore
+times 4-bit rows as the 8-bit variant.
+
+Quality is the open question. In the same study, FP8 and INT4 scored within a few tasks of BF16
+on SWE-Bench-Pro (BF16 33, FP8 30, INT4 32 of 64 tasks), but Jang et al. (arXiv 2607.27275) found 4-bit
+models make up to 2.5× more malformed tool calls while benchmark scores stay flat. This is why
+the coding floor is still 8-bit: choose a 4-bit row when you need room more than reliability.
+
 Two things stay hand-written because no metadata holds them: vLLM's tool-call and reasoning
 parsers per model family, and the memory overhead, which is calibrated from measured runs.

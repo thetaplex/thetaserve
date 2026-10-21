@@ -331,6 +331,7 @@ def _pick(
     table.add_column("weights")
     table.add_column("KV cache", no_wrap=True)
     table.add_column("memory (GiB)", no_wrap=True)
+    table.add_column("sequences", justify="right")
     table.add_column("tok/s", justify="right")
     table.add_column("$/h", justify="right")
     table.add_column("stock")
@@ -339,13 +340,14 @@ def _pick(
         note = "recommended" if i == best else ""
         if o.weights.bits < preset.min_bits:
             note = f"below {use}'s {preset.min_bits}-bit floor"
-        rate = options.tokens_per_s(o, catalog.bandwidth, gpus)
+        rate = options.tokens_per_s(o, catalog.bandwidth, gpus, weights)
         table.add_row(
             str(i + 1),
             f"{o.gpu.id} ({o.gpu.vram_gb:g} GB)",
             f"{o.weights.bits}-bit {o.weights.label}  {o.weights.repo}",
             "8-bit fp8" if o.kv_cache_dtype.startswith("fp8") else "16-bit",
             f"{o.fit.total_gb:.1f} of {o.fit.budget_gb:.1f}",
+            f"{o.fit.sequences:.1f}",
             f"~{rate:.0f}" if rate else "?",
             f"{o.gpu.price:.2f}",
             _STOCK[o.gpu.stock],
@@ -356,8 +358,10 @@ def _pick(
         f"memory = weights + KV cache for one {found[0].context:,}-token sequence + "
         f"{DEFAULT_OVERHEAD_GB:g} GiB overhead, of VRAM x "
         f"{DEFAULT_GPU_MEMORY_UTILIZATION:g} usable.\n"
+        f"sequences = {found[0].context:,}-token sequences the KV cache holds at once; "
+        "more means more parallel sessions and prefix cache.\n"
         f"tok/s = one request at short context, {options.DECODE_EFFICIENCY:.0%} of memory "
-        "bandwidth / weight size; an estimate, not yet measured."
+        "bandwidth / weight size (4-bit timed as 8-bit); an estimate, not yet measured."
     )
     if preset.tools and "--tool-call-parser" not in common_args:
         out.print(

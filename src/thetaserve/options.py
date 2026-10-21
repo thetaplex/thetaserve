@@ -172,10 +172,14 @@ def recommended(found: list[Option], preset: Preset) -> int:
     return found.index(min(meeting, key=lambda o: (o.gpu.price, -o.weights.bits)))
 
 
-def tokens_per_s(option: Option, bandwidth: dict[str, float], gpus: list[Gpu]) -> float | None:
+def tokens_per_s(
+    option: Option, bandwidth: dict[str, float], gpus: list[Gpu], weights: list[Weights]
+) -> float | None:
     """Estimated decode speed of one request: each token reads every weight once.
 
-    Ignores KV-cache reads, so it is an upper bound that falls as the context fills.
+    Ignores KV-cache reads, so it is an upper bound that falls as the context fills. Weights
+    below 8 bits are timed as the smallest 8-bit variant: unpacking them costs about what the
+    smaller read saves, and INT4 measured slower than FP8 on vLLM (imec, 2026-10).
     """
     gpu = option.gpu
     gbps = bandwidth.get(gpu.id)
@@ -186,7 +190,10 @@ def tokens_per_s(option: Option, bandwidth: dict[str, float], gpus: list[Gpu]) -
             gbps = bandwidth[parent_id] * gpu.vram_gb / parent.vram_gb
     if gbps is None:
         return None
-    return DECODE_EFFICIENCY * gbps * 1e9 / (option.weights.gb * GIB)
+    read_gb = option.weights.gb
+    if option.weights.bits < 8:
+        read_gb = min((w.gb for w in weights if w.bits >= 8), default=read_gb)
+    return DECODE_EFFICIENCY * gbps * 1e9 / (read_gb * GIB)
 
 
 def no_options(facts: ModelFacts, preset: Preset, context: int | None) -> str:
