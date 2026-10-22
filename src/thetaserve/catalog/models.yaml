@@ -19,7 +19,8 @@ qwen3.8-27b:
 gemma4-31b:
   hf_family: google/gemma-4-31B-it   # instruction-tuned; quantisations are made from this
   min_vllm: TODO
-  common_args: [--enable-prefix-caching]   # tool-call parser TODO
+  common_args: [--enable-prefix-caching, --reasoning-parser, gemma4,
+                --enable-auto-tool-choice, --tool-call-parser, gemma4]   # VERIFY in pilot
   kv_bytes_per_token: 81920   # 10 global layers x 4 KV heads x head dim 512 x 2 (K,V) x 2 B
   kv_fixed_bytes: 838860800   # ~0.8 GB: 50 sliding-window layers, window 1024
   tiers:

@@ -139,7 +139,8 @@ qwen3.8-27b:
 gemma4-31b:
   hf_family: google/gemma-4-31B-it   # verified 2026-10-21; quantisations are made from this
   min_vllm: TODO
-  common_args: [--enable-prefix-caching]   # tool-call parser TODO
+  common_args: [--enable-prefix-caching, --reasoning-parser, gemma4,
+                --enable-auto-tool-choice, --tool-call-parser, gemma4]   # VERIFY in pilot
   tiers:
     24g: { repo: TODO-4bit, max_model_len: 32768, kv_cache_dtype: fp8 }
     48g:
