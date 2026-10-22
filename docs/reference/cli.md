@@ -39,7 +39,8 @@ that meets the use case's precision floor. `--yes` and `--dry-run` take it. With
 | `--yes`, `-y` | off | Do not ask before launching; required when not interactive |
 
 Options are computed from the model's Hugging Face `config.json`, its quantised variants
-(GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes, and the Runpod GPU
+(GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes at the current
+commit, which `vllm serve --revision` is then pinned to, and the Runpod GPU
 catalogue (NVIDIA only). FP8 KV cache is not offered on Ampere and FP4 weights only on
 Blackwell.
 

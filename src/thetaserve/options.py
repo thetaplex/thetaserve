@@ -33,6 +33,7 @@ class Weights:
     bits: int
     gb: float  # GiB of .safetensors files
     blackwell_only: bool = False
+    revision: str = "main"  # commit the sizes were read from; vLLM is pinned to it
 
 
 @dataclass(frozen=True)
@@ -82,10 +83,21 @@ def fetch_model(repo: str, token: str | None = None) -> tuple[ModelFacts, list[W
                 best[q[0]], repos[q[0]] = q, name
         weights = []
         for label, (_, bits, blackwell_only) in best.items():
-            files = _get(hub, f"/api/models/{repos[label]}/tree/main", repos[label])
-            size = sum(f.get("size", 0) for f in files if f["path"].endswith(".safetensors"))
+            info = _get(
+                hub,
+                f"/api/models/{repos[label]}/revision/main",
+                repos[label],
+                params={"blobs": "true"},
+            )
+            size = sum(
+                f.get("size", 0)
+                for f in info.get("siblings", [])
+                if f["rfilename"].endswith(".safetensors")
+            )
             if size:
-                weights.append(Weights(repos[label], label, bits, size / GIB, blackwell_only))
+                weights.append(
+                    Weights(repos[label], label, bits, size / GIB, blackwell_only, info["sha"])
+                )
     return model_facts(repo, config), weights
 
 
@@ -249,8 +261,13 @@ def to_spec(
         max_model_len=o.context,
         kv_cache_dtype=o.kv_cache_dtype,
         gpu_memory_utilization=DEFAULT_GPU_MEMORY_UTILIZATION,
+        # --revision also pins the tokenizer and chat template (vLLM defaults one to the other).
         vllm_args=vllm_args(
-            o.weights.repo, port, o.context, o.kv_cache_dtype, [*common_args, *extra_args]
+            o.weights.repo,
+            port,
+            o.context,
+            o.kv_cache_dtype,
+            ["--revision", o.weights.revision, *common_args, *extra_args],
         ),
         secret_env=[API_KEY_ENV],
         idle_s=idle_s,

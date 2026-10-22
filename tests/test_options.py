@@ -170,8 +170,14 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
             ]
         )
         for repo, gb in (("Qwen/Qwen3.8-27B", 51.7), ("Qwen/Qwen3.8-27B-FP8", 28.75)):
-            router.get(f"{HF_URL}/api/models/{repo}/tree/main").respond(
-                json=[{"path": "model.safetensors", "size": int(gb * GIB)}, {"path": "x.json"}]
+            router.get(f"{HF_URL}/api/models/{repo}/revision/main").respond(
+                json={
+                    "sha": f"{len(repo):040x}",
+                    "siblings": [
+                        {"rfilename": "model.safetensors", "size": int(gb * GIB)},
+                        {"rfilename": "x.json"},
+                    ],
+                }
             )
         router.get(f"{API_URL}/v2/catalog/gpus").respond(
             json={
@@ -206,6 +212,7 @@ def test_up_without_device_lists_options_and_dry_runs_the_first(
     assert "tok/s" in result.output
     assert "MI300X" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
+    assert f"--revision {len('Qwen/Qwen3.8-27B-FP8'):040x}" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output
     body = json.loads(result.output[result.output.index("{") :])
     assert body["gpu"] == {"id": "NVIDIA A40", "count": 1}
