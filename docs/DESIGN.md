@@ -157,11 +157,11 @@ Rules:
 1. **Pinned commit (implemented).** When `up` reads a variant's file sizes, it records the
    commit hash of that revision. It passes `--revision <hash>` to `vllm serve`. vLLM uses the
    model revision for the tokenizer too, so the tokenizer and chat template are pinned as well.
-2. **Trusted publishers (proposed, D3).** `up` uses only variants from the base model's own
+2. **Trusted publishers (implemented, D3).** `up` uses only variants from the base model's own
    organisation or from an organisation in a packaged `publishers.yaml`: initially `RedHatAI`
    (Red Hat's verified organisation, maintainers of vLLM's `llm-compressor`) and `nvidia`.
    Users add organisations in their config directory.
-3. **Opt-in for the rest (proposed, D3).** `--any-publisher` also lists variants from other
+3. **Opt-in for the rest (implemented, D3).** `--any-publisher` also lists variants from other
    publishers, marked in the table.
 
 A trusted publisher can still publish bad weights. These rules limit whom the user trusts.
@@ -450,7 +450,8 @@ thetaserve/
     __init__.py  cli.py  config.py  options.py  spec.py  state.py  secrets.py  health.py
     providers/  base.py  runpod.py  aws.py (M5)
     remote/     start.sh  watchdog.py  aws_user_data.sh   (M3, M5)
-    catalog/    presets.yaml  bandwidth.yaml  models.yaml  providers.yaml  samples.json
+    catalog/    presets.yaml  bandwidth.yaml  models.yaml  providers.yaml  publishers.yaml
+                samples.json
   results/      (M4)
   tests/        test_config.py  test_options.py  test_spec.py  test_runpod.py  test_cli_lifecycle.py ...
   docs/         DESIGN.md  tutorials/  how-to/  reference/  explanation/
@@ -485,7 +486,7 @@ thetaserve/
   from pod creation to ready (M1 pilot).
 - The `tok/s` factor (section 6.1, point 8): the A40 decoded 20.2 tok/s against an estimate of
   14, approximately 0.85 of bandwidth. One measurement; keep 0.6 until `bench`.
-- D3: accept or change the trusted-publisher rules (section 5.3).
+- ~~D3: accept or change the trusted-publisher rules.~~ Accepted 2026-10-22 (section 5.3).
 
 ### 13.1 M1 pilot record (2026-10-22)
 
@@ -621,8 +622,7 @@ Consequences:
 
 ### D3. Trust weight publishers explicitly and pin the commit
 
-Date: 2026-10-22. Status: proposed. The pinned commit is implemented; trusted publishers and
-`--any-publisher` wait for acceptance. Rules: section 5.3. Changes D1 (weight variants).
+Date: 2026-10-22. Status: accepted 2026-10-22, implemented. Rules: section 5.3. Changes D1 (weight variants).
 
 Context. D1 takes weight variants from any publisher, most downloaded first (section 5.3). An
 example from the Gemma 4 26B list: `farbodtavakkoli/OTel-2.0-Decision-26B-A4B-4bit`

@@ -67,11 +67,16 @@ more than reliability.
 ## Where the weights come from
 
 The quantised variants come from the Hugging Face Hub, most downloaded first. Anyone can
-publish a repository with a quantisation tag, and download counts are easy to inflate.
+publish a repository with a quantisation tag, and download counts are easy to inflate. Thus
+`up` offers only variants from the base model's own organisation and from the organisations in
+`publishers.yaml` (`RedHatAI` and `nvidia` built in). `--any-publisher` lists the rest too,
+marked `(untrusted publisher)`. Fewer 4-bit rows is the cost: some AWQ variants come only from
+individuals.
 
 A `.safetensors` file holds only tensors, and thetaserve never passes `--trust-remote-code`.
 Thus a variant cannot run code on the host. But a publisher can change the weights or the chat
-template, and no metadata shows this. Check the repository in the table before you launch it.
+template, and no metadata shows this. A trusted publisher limits whom you trust; it does not
+verify the weights.
 
 `up` pins each launch to the commit whose sizes it read (`vllm serve --revision`). The
 tokenizer and chat template are pinned with it. Thus a push to the repository after you select

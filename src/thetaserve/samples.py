@@ -47,7 +47,11 @@ def main() -> None:
     listing = RunPod(cfg, secrets.get(RUNPOD_SECRET, env=cfg.api_key_env)).gpu_listing()
     hf: dict[str, Any] = {}
     for m in catalog.models.values():
-        facts, weights = fetch_model(m.hf_family, secrets.get("hf", env="HF_TOKEN"))
+        # ponytail: trusted publishers only, so `up --any-publisher` offline shows the same
+        # variants; store every publisher too if offline dry runs need them.
+        facts, weights = fetch_model(
+            m.hf_family, secrets.get("hf", env="HF_TOKEN"), catalog.publishers
+        )
         hf[m.hf_family] = {"facts": asdict(facts), "weights": [asdict(w) for w in weights]}
     data: dict[str, Any] = {
         "fetched": datetime.now(UTC).date().isoformat(),

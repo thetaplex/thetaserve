@@ -1,0 +1,5 @@
+# Hugging Face organisations whose quantised weights `up` offers (DESIGN.md section 5.3, D3).
+# The base model's own organisation is always trusted. `up --any-publisher` also lists others.
+# Key: organisation name as in the repo ID. Value: why it is trusted.
+RedHatAI: Red Hat's verified organisation; maintains vLLM's llm-compressor
+nvidia: NVIDIA's verified organisation; publishes Model Optimizer quantisations

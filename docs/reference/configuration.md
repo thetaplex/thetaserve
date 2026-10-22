@@ -44,10 +44,16 @@ Built in: `coding` (131072, tools, 8), `chat` (32768, no tools, 4), `research` (
 GPU memory bandwidth in GB/s from vendor data sheets, keyed by Runpod GPU ID. Used only for the
 `tok/s` estimate. A MIG slice gets its parent's bandwidth in proportion to its memory.
 
+## publishers.yaml
+
+Hugging Face organisations whose quantised weights `up` offers, keyed by organisation name;
+the value says why it is trusted. The base model's own organisation is always trusted. Built
+in: `RedHatAI`, `nvidia`. `up --any-publisher` also lists other publishers.
+
 ## samples.json
 
 Built in only. A dated sample of the Runpod GPU catalogue (NVIDIA GPUs only) and of the
-Hugging Face data of each built-in model. `up --dry-run` uses it when no Runpod key is
+Hugging Face data of each built-in model, trusted publishers only. `up --dry-run` uses it when no Runpod key is
 available. `just samples` fetches it again.
 
 ## providers.yaml

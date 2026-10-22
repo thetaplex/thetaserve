@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
@@ -16,6 +17,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from thetaserve import __version__, health, options, samples, secrets, state
+from thetaserve._files import write_private
 from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
 from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
 from thetaserve.providers.base import Gpu
@@ -73,6 +75,7 @@ class Shell(StrEnum):
     fish = "fish"
     powershell = "powershell"
     cmd = "cmd"
+    json = "json"
 
 
 def _fail(message: str, code: int = 1) -> NoReturn:
@@ -212,6 +215,12 @@ def up(
     kv_cache_dtype: Annotated[
         KvDtype | None, typer.Option(help="KV-cache dtype; default shows auto and fp8.")
     ] = None,
+    any_publisher: Annotated[
+        bool,
+        typer.Option(
+            "--any-publisher", help="Also list weights from publishers not in publishers.yaml."
+        ),
+    ] = False,
     extra_arg: Annotated[
         list[str] | None, typer.Option(help="Extra vLLM argument; repeat for several.")
     ] = None,
@@ -241,6 +250,7 @@ def up(
             min_bits=int(min_precision.value.removesuffix("bit")) if min_precision else None,
             context=context,
             kv_cache_dtype=kv_cache_dtype.value if kv_cache_dtype else None,
+            any_publisher=any_publisher,
             extra_args=extra_arg or [],
             port=port,
             idle_s=parse_duration(idle),
@@ -269,6 +279,7 @@ def _pick(
     min_bits: int | None,
     context: int | None,
     kv_cache_dtype: KvCacheDtype | None,
+    any_publisher: bool,
     extra_args: list[str],
     port: int,
     idle_s: int,
@@ -298,7 +309,11 @@ def _pick(
         )
     with out.status(f"Finding GPUs and weights for {repo}…"):
         sampled = samples.model(sample, repo) if sample else None
-        facts, weights = sampled or options.fetch_model(repo, secrets.get(HF_SECRET, env=HF_ENV))
+        facts, weights = sampled or options.fetch_model(
+            repo,
+            secrets.get(HF_SECRET, env=HF_ENV),
+            None if any_publisher else catalog.publishers,
+        )
         gpus = samples.gpus(sample, adapter.cfg.cloud_type) if sample else adapter.gpus()
         if device is not None:
             gpus = _on_device(gpus, device)
@@ -326,10 +341,12 @@ def _pick(
     table.add_column("stock")
     for i, o in enumerate(found):
         rate = options.tokens_per_s(o, catalog.bandwidth, gpus, weights)
+        untrusted = not options.trusted(o.weights.repo, repo, catalog.publishers)
         table.add_row(
             str(i + 1),
             f"{o.gpu.id} ({o.gpu.vram_gb:g} GB)",
-            f"{o.weights.bits}-bit {o.weights.label}  {o.weights.repo}",
+            f"{o.weights.bits}-bit {o.weights.label}  {o.weights.repo}"
+            + (" [yellow](untrusted publisher)[/yellow]" if untrusted else ""),
             "8-bit fp8" if o.kv_cache_dtype.startswith("fp8") else "16-bit",
             f"{o.fit.total_gb:.1f} of {o.fit.budget_gb:.1f}",
             f"~{rate:.0f}" if rate else "?",
@@ -451,8 +468,10 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> None:
                 status.update(f"Loading the model… {_human(elapsed)} ({seen})")
                 if elapsed - checked >= CRASH_CHECK_S:  # vLLM restarts in a loop on a crash
                     checked = elapsed
-                    if line := health.crash_line(adapter.logs(d, follow=False, tail=500)):
-                        raise health.NotReady(f"vLLM crashed: {line}")
+                    lines = list(adapter.logs(d, follow=False, tail=500))
+                    if line := health.crash_line(lines):
+                        saved = save_log(d.name, lines, api_key)
+                        raise health.NotReady(f"vLLM crashed: {line}\nFull log: {saved}")
 
             health.wait_ready(endpoint.base_url, api_key, READY_TIMEOUT_S, on_wait=on_wait)
     except (ProviderError, health.NotReady, KeyboardInterrupt) as exc:
@@ -474,6 +493,15 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> None:
             f"KV cache holds {kv_tokens:,} tokens (configured context {spec.max_model_len:,})."
         )
     out.print(f"API key {secrets.mask(api_key)}. For export lines: thetaserve env {d.name}")
+
+
+def save_log(name: str, lines: list[str], api_key: str) -> Path:
+    """Keep a crashed server's log, key masked: `down` removes the host and its log."""
+    path = state.state_dir() / "logs" / f"{name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.log"
+    write_private(
+        path, "".join(f"{line.rstrip(chr(10))}\n" for line in lines).replace(api_key, MASK)
+    )
+    return path
 
 
 def _print_dry_run(spec: LaunchSpec, adapter: Provider) -> None:
@@ -555,12 +583,42 @@ def env(
         Shell | None, typer.Option(help="Output syntax; defaults to your platform's shell.")
     ] = None,
 ) -> None:
-    """Print OPENAI_BASE_URL / OPENAI_API_KEY lines for clients and coding agents."""
+    """Print OPENAI_BASE_URL / OPENAI_API_KEY lines for clients and coding agents.
+
+    Model details and URLs go to stderr, so `eval "$(thetaserve env)"` sees only the exports.
+    """
     with _errors():
         d = state.resolve_name(state.load(), name)
     key = secrets.get(d.secret_name)
     if key is None or d.base_url is None:
         _fail(f"no stored endpoint or key for {d.name!r}")
+    args, root = d.spec.vllm_args, d.base_url.removesuffix("/v1")
+    values = {
+        "name": d.name,
+        "model": d.spec.repo,  # the "model" field of requests
+        "catalogue_model": d.spec.model,
+        "weights": d.spec.weights,
+        "revision": args[args.index("--revision") + 1] if "--revision" in args else "main",
+        "context": d.max_context or d.spec.max_model_len,
+        "device": d.spec.device,
+        "provider": d.provider,
+        "base_url": d.base_url,
+        "api_key": key,
+        "chat_url": f"{d.base_url}/chat/completions",
+        "completions_url": f"{d.base_url}/completions",
+        "models_url": f"{d.base_url}/models",
+        "metrics_url": f"{root}/metrics",
+        "health_url": f"{root}/health",  # the only URL that needs no key
+    }
+    if shell == Shell.json:
+        print(json.dumps(values, indent=2))
+        return
+    info = Table.grid(padding=(0, 2))
+    for label, value in values.items():
+        if label != "api_key":
+            info.add_row(label, escape(str(value)))
+    err.print(info)
+    err.print("[dim]Every URL except health_url needs the key. --shell json prints all.[/dim]")
     shell = shell or (Shell.powershell if os.name == "nt" else Shell.posix)
     pairs = {"OPENAI_BASE_URL": d.base_url, "OPENAI_API_KEY": key}
     for k, v in pairs.items():
@@ -573,6 +631,8 @@ def env(
                 line = f"$env:{k} = '{v}'"
             case Shell.cmd:
                 line = f"set {k}={v}"
+            case Shell.json:  # handled above
+                continue
         print(line)  # plain print: this output is meant to be eval'd, not styled
 
 

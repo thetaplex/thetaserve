@@ -8,8 +8,15 @@ different vLLM image, or give a model a short name and its vLLM flags.
    `~/.config/thetaserve/`.
 
 2. In that directory, create a file with the name of the built-in file: `presets.yaml`,
-   `bandwidth.yaml`, `models.yaml` or `providers.yaml`. Each top-level key replaces **all** of
+   `bandwidth.yaml`, `models.yaml`, `providers.yaml` or `publishers.yaml`. Each top-level key replaces **all** of
    the built-in entry with the same key. thetaserve does not merge the fields of an entry.
+
+## Trust another weight publisher
+
+```yaml
+# publishers.yaml
+cyankiwi: AWQ quantisations I checked myself
+```
 
 ## Add a use-case preset
 

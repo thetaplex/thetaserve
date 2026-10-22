@@ -29,7 +29,7 @@ curl -s "$OPENAI_BASE_URL/models" -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
 
 In your client, set the model name to the `id` in the response (for example
-`Qwen/Qwen3.8-27B-FP8`).
+`Qwen/Qwen3.8-27B-FP8`). `thetaserve env` also shows it, as `request as`.
 
 ## Stream long generations
 

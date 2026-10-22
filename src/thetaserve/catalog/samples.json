@@ -12,7 +12,7 @@
      "secure": 1.79,
      "serverless": 2.72
     },
-    "availability": "LOW"
+    "availability": "NONE"
    },
    {
     "id": "NVIDIA A100-SXM4-40GB",
@@ -172,7 +172,7 @@
      "secure": 0.89,
      "serverless": 1.1
     },
-    "availability": "MEDIUM"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA GeForce RTX 5080",
@@ -266,7 +266,7 @@
      "secure": 0.59,
      "serverless": 0.69
     },
-    "availability": "NONE"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA L40",
@@ -290,7 +290,7 @@
      "secure": 1.09,
      "serverless": 1.75
     },
-    "availability": "MEDIUM"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA RTX 2000 Ada Generation",
@@ -348,7 +348,7 @@
      "secure": 0.99,
      "serverless": 1.75
     },
-    "availability": "LOW"
+    "availability": "NONE"
    },
    {
     "id": "NVIDIA RTX A2000",
@@ -383,7 +383,7 @@
      "secure": 0.25,
      "serverless": 0.58
     },
-    "availability": "NONE"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA RTX A5000",
@@ -395,7 +395,7 @@
      "secure": 0.27,
      "serverless": 0.69
     },
-    "availability": "NONE"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA RTX A6000",
@@ -430,7 +430,7 @@
      "secure": 0.72,
      "serverless": 1.15
     },
-    "availability": "MEDIUM"
+    "availability": "NONE"
    },
    {
     "id": "NVIDIA RTX PRO 4500 Blackwell Server Edition",
@@ -476,7 +476,7 @@
      "secure": 2.49,
      "serverless": 3.49
     },
-    "availability": "MEDIUM"
+    "availability": "LOW"
    },
    {
     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
@@ -512,7 +512,7 @@
      "secure": 2.59,
      "serverless": 3.49
     },
-    "availability": "LOW"
+    "availability": "NONE"
    },
    {
     "id": "Tesla V100-PCIE-16GB",
@@ -564,28 +564,20 @@
      "revision": "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a"
     },
     {
-     "repo": "unsloth/Qwen3.8-27B-NVFP4",
+     "repo": "nvidia/Qwen3.8-27B-NVFP4",
      "label": "nvfp4",
      "bits": 4,
-     "gb": 21.80933252722025,
+     "gb": 20.416171550750732,
      "blackwell_only": true,
-     "revision": "f0b7c9e722f5565102fff8481c99e4d86ae099c7"
+     "revision": "482ca0f3832238542f8f5295dde86b5f22711d80"
     },
     {
-     "repo": "cyankiwi/Qwen3.8-27B-AWQ-INT4",
+     "repo": "RedHatAI/Qwen3.8-27B-INT4",
      "label": "int4",
      "bits": 4,
-     "gb": 19.574538737535477,
+     "gb": 18.11682064831257,
      "blackwell_only": false,
-     "revision": "e3a700906e6a73ba4290b1873dc2ba8198527ab5"
-    },
-    {
-     "repo": "Vishva007/Qwen3.8-27B-W4A16-AutoRound-GPTQ",
-     "label": "gptq-int4",
-     "bits": 4,
-     "gb": 18.658663637936115,
-     "blackwell_only": false,
-     "revision": "1b9d56b428e9f841d7ad566f87660b5f47553c97"
+     "revision": "91bd022d5b49442a868bc35008f6c21e1860edfa"
     }
    ]
   },
@@ -620,30 +612,6 @@
      "gb": 30.97880531847477,
      "blackwell_only": false,
      "revision": "d7242548c457ab4b45bd3adb8937f2659af4739d"
-    },
-    {
-     "repo": "QuantTrio/gemma-4-31B-it-AWQ",
-     "label": "awq-int4",
-     "bits": 4,
-     "gb": 19.054913394153118,
-     "blackwell_only": false,
-     "revision": "37cf6a076672592df03c8d941886a9d70d4338f0"
-    },
-    {
-     "repo": "cyankiwi/gemma-4-31B-it-AWQ-4bit",
-     "label": "int4",
-     "bits": 4,
-     "gb": 19.46877484768629,
-     "blackwell_only": false,
-     "revision": "a6b1af08a2dec2a803fd31641540d6a6d6cb09a9"
-    },
-    {
-     "repo": "lokeshe09/gemma-4-31B-it-INT8",
-     "label": "int8",
-     "bits": 8,
-     "gb": 30.98335162550211,
-     "blackwell_only": false,
-     "revision": "6bbcf49cbd6e15183887bf5cc4e9948487a370d4"
     }
    ]
   }

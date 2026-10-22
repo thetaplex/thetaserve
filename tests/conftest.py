@@ -104,12 +104,17 @@ def spec() -> LaunchSpec:
 
 @pytest.fixture
 def hub() -> Iterator[respx.MockRouter]:
-    """Hugging Face Hub with Qwen3.8-27B (BF16, FP8 and a GGUF to skip) and the Runpod catalogue."""
+    """Hub with Qwen3.8-27B (BF16, FP8, untrusted AWQ, GGUF to skip) and the Runpod catalogue."""
     with respx.mock(assert_all_called=False) as router:
         router.get(f"{HF_URL}/Qwen/Qwen3.8-27B/resolve/main/config.json").respond(json=QWEN_CONFIG)
         router.get(f"{HF_URL}/api/models").respond(
             json=[
                 {"id": "unsloth/Qwen3.8-27B-GGUF", "tags": ["gguf"], "config": {}},
+                {
+                    "id": "someone/Qwen3.8-27B-AWQ",
+                    "tags": [],
+                    "config": {"quantization_config": {"quant_method": "awq", "bits": 4}},
+                },
                 {
                     "id": "Qwen/Qwen3.8-27B-FP8",
                     "tags": [],
@@ -117,7 +122,11 @@ def hub() -> Iterator[respx.MockRouter]:
                 },
             ]
         )
-        for repo, gb in (("Qwen/Qwen3.8-27B", 51.7), ("Qwen/Qwen3.8-27B-FP8", 28.75)):
+        for repo, gb in (
+            ("Qwen/Qwen3.8-27B", 51.7),
+            ("Qwen/Qwen3.8-27B-FP8", 28.75),
+            ("someone/Qwen3.8-27B-AWQ", 18.1),
+        ):
             router.get(f"{HF_URL}/api/models/{repo}/revision/main").respond(
                 json={
                     "sha": f"{len(repo):040x}",

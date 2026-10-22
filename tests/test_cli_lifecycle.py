@@ -8,7 +8,7 @@ import respx
 from typer.testing import CliRunner
 
 from thetaserve import secrets, state
-from thetaserve.cli import app
+from thetaserve.cli import app, save_log
 from thetaserve.providers.runpod import API_URL
 
 runner = CliRunner()
@@ -80,10 +80,18 @@ def test_full_lifecycle(mocked_runpod: respx.MockRouter) -> None:
     assert "RUNNING" in result.output
 
     result = runner.invoke(app, ["env", "--shell", "posix"])
-    assert result.output.splitlines() == [
+    assert result.stdout.splitlines() == [
         f"export OPENAI_BASE_URL='{PROXY}'",
         f"export OPENAI_API_KEY='{key}'",
     ]
+    assert f"{PROXY}/chat/completions" in result.stderr
+    assert "https://pod1-8000.proxy.runpod.net/metrics" in result.stderr
+    assert key not in result.stderr
+
+    values = json.loads(runner.invoke(app, ["env", "--shell", "json"]).stdout)
+    assert values["model"] == "Qwen/Qwen3.8-27B-FP8"
+    assert values["api_key"] == key
+    assert values["base_url"] == PROXY
 
     result = runner.invoke(app, ["logs"])
     assert "GPU KV cache size" in result.output
@@ -129,3 +137,9 @@ def test_commands_without_deployments_explain() -> None:
     result = runner.invoke(app, ["env"])
     assert result.exit_code == 1
     assert "no deployments" in result.output
+
+
+def test_crash_log_is_kept_with_the_key_masked(user_dir: Path) -> None:
+    saved = save_log("dev", ["args: api_key=k3y\n", "ValueError: no room"], "k3y")
+    assert saved.read_text() == "args: api_key=****\nValueError: no room\n"
+    assert saved.parent == state.state_dir() / "logs"

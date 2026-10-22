@@ -1,6 +1,7 @@
 """Suggest launch options from live model and GPU data (docs/DESIGN.md section 6)."""
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,8 +54,14 @@ class Option:
     fit: Fit
 
 
-def fetch_model(repo: str, token: str | None = None) -> tuple[ModelFacts, list[Weights]]:
-    """Memory facts of `repo` and the weight variants vLLM can serve, best first per format."""
+def fetch_model(
+    repo: str, token: str | None = None, publishers: Collection[str] | None = None
+) -> tuple[ModelFacts, list[Weights]]:
+    """Memory facts of `repo` and the weight variants vLLM can serve, best first per format.
+
+    With `publishers`, only variants from those organisations or `repo`'s own are kept;
+    None keeps every publisher.
+    """
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     with httpx.Client(base_url=HF_URL, headers=headers, follow_redirects=True, timeout=30.0) as hub:
         config = _get(hub, f"/{repo}/resolve/main/config.json", repo)
@@ -75,6 +82,7 @@ def fetch_model(repo: str, token: str | None = None) -> tuple[ModelFacts, list[W
             for m in listed
             if not {"gguf", "mlx"} & set(m.get("tags") or [])
             and (m.get("config") or {}).get("quantization_config")
+            and (publishers is None or trusted(m["id"], repo, publishers))
         ]
         best: dict[str, tuple[str, int, bool]] = {}
         repos: dict[str, str] = {}
@@ -99,6 +107,12 @@ def fetch_model(repo: str, token: str | None = None) -> tuple[ModelFacts, list[W
                     Weights(repos[label], label, bits, size / GIB, blackwell_only, info["sha"])
                 )
     return model_facts(repo, config), weights
+
+
+def trusted(variant: str, base: str, publishers: Collection[str]) -> bool:
+    """Whether `variant` comes from `base`'s organisation or a trusted publisher (D3)."""
+    org = variant.split("/")[0].lower()
+    return org == base.split("/")[0].lower() or org in {p.lower() for p in publishers}
 
 
 def model_facts(repo: str, config: dict[str, Any]) -> ModelFacts:

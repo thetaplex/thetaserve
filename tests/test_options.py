@@ -165,6 +165,20 @@ def test_up_lists_options_and_dry_runs_the_recommended_one(
     assert body["name"] == "thetaserve-qwen3.8-27b-rtx-a6000"
 
 
+def test_untrusted_publishers_only_with_any_publisher(
+    monkeypatch: pytest.MonkeyPatch, hub: respx.MockRouter
+) -> None:
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
+    args = ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--use", "chat", "--dry-run"]
+    trusted_only = CliRunner().invoke(app, args, env={"COLUMNS": "200"})
+    assert trusted_only.exit_code == 0, trusted_only.output
+    assert "someone/" not in trusted_only.output
+
+    anyone = CliRunner().invoke(app, [*args, "--any-publisher"], env={"COLUMNS": "200"})
+    assert anyone.exit_code == 0, anyone.output
+    assert "someone/Qwen3.8-27B-AWQ (untrusted publisher)" in anyone.output
+
+
 def test_dry_run_without_key_uses_the_packaged_sample(hub: respx.MockRouter) -> None:
     result = CliRunner().invoke(
         app,
