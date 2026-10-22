@@ -6,6 +6,7 @@ import re
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -297,7 +298,7 @@ def _pick(
     if use not in catalog.presets:
         raise ResolveError(f"unknown use {use!r}; choose one of: {', '.join(catalog.presets)}")
     preset = catalog.presets[use]
-    repo, common_args = _model_source(catalog, model)
+    repo, common_args, kv_scale = _model_source(catalog, model)
     if choose and not sys.stdin.isatty():
         _fail("Choosing an option needs a terminal. Pass --yes to take the first option.")
 
@@ -314,6 +315,7 @@ def _pick(
             secrets.get(HF_SECRET, env=HF_ENV),
             None if any_publisher else catalog.publishers,
         )
+        facts = replace(facts, kv_bytes_per_token=round(facts.kv_bytes_per_token * kv_scale))
         gpus = samples.gpus(sample, adapter.cfg.cloud_type) if sample else adapter.gpus()
         if device is not None:
             gpus = _on_device(gpus, device)
@@ -390,20 +392,20 @@ def _pick(
     )
 
 
-def _model_source(catalog: Catalog, model: str) -> tuple[str, list[str]]:
-    """Base repo and family vLLM flags for a catalogue key or a Hugging Face repo."""
+def _model_source(catalog: Catalog, model: str) -> tuple[str, list[str], float]:
+    """Base repo, family vLLM flags and KV scale for a catalogue key or a Hugging Face repo."""
     # ponytail: family flags come from the catalogue entry with the same base repo; DESIGN.md 5.4
     # keys them by architecture instead, so other repos of a family pick them up. Do that once
     # a second model of a known family is wanted.
     if entry := catalog.models.get(model):
-        return entry.hf_family, entry.common_args
+        return entry.hf_family, entry.common_args, entry.kv_scale
     if "/" not in model:
         raise ResolveError(
             f"unknown model {model!r}; use a Hugging Face repo such as Qwen/Qwen3.8-27B or one "
             f"of: {', '.join(sorted(catalog.models))}"
         )
     family = next((m for m in catalog.models.values() if m.hf_family == model), None)
-    return model, family.common_args if family else []
+    return model, *((family.common_args, family.kv_scale) if family else ([], 1.0))
 
 
 def _on_device(gpus: list[Gpu], device: str) -> list[Gpu]:

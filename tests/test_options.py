@@ -21,6 +21,7 @@ from thetaserve.options import (
     tokens_per_s,
 )
 from thetaserve.providers.base import Gpu
+from thetaserve.spec import DEFAULT_OVERHEAD_GB
 
 GIB = 1024**3
 CODING = Preset(min_context=131072, tools=True, min_bits=8)
@@ -114,11 +115,11 @@ def test_cheapest_gpu_for_every_weight_and_kv_precision() -> None:
         ("fp8", "auto", "NVIDIA A40"),  # the A6000 is cheaper but sold out
         ("int4", "auto", "NVIDIA A40"),  # same price: higher precision first
         ("fp8", "fp8", "NVIDIA L40S"),
-        ("int4", "fp8", "NVIDIA L40S"),  # 18.1 + 4.0 + 2.0 GiB is over a 24 GB card's 22.1
+        ("int4", "fp8", "NVIDIA L40S"),  # 18.1 + 4.0 + 3.2 GiB is over a 24 GB card's 22.1
         ("bf16", "auto", "NVIDIA A100 80GB PCIe"),
         ("bf16", "fp8", "NVIDIA H100 80GB HBM3"),  # no FP8 KV on Ampere
     ]
-    assert found[0].fit.total_gb == pytest.approx(28.75 + 8 + 2)
+    assert found[0].fit.total_gb == pytest.approx(28.75 + 8 + DEFAULT_OVERHEAD_GB)
     assert recommended(found, CODING) == 0
     # Chat allows 4-bit, but on the same A40 at the same price 8-bit wins.
     assert recommended(found, CHAT) == 0
@@ -131,11 +132,11 @@ def test_min_bits_drops_lower_precisions_and_fp4_needs_blackwell() -> None:
     found = suggest(FACTS, WEIGHTS, [*GPUS, blackwell], CHAT, min_bits=8)
     assert {o.weights.bits for o in found} == {16, 8}
     four_bit = [o for o in suggest(FACTS, WEIGHTS, [blackwell], CHAT) if o.weights.bits == 4]
-    # At 32K with BF16 KV only the smaller FP4 weights fit 24 GB; with FP8 KV, INT4 (listed
-    # first) does.
+    # At 32K only the smaller FP4 weights fit 24 GB: INT4 with FP8 KV is 18.1 + 1.0 + 3.2 GiB,
+    # over the 22.1 usable.
     assert [(o.weights.label, o.kv_cache_dtype) for o in four_bit] == [
         ("nvfp4", "auto"),
-        ("int4", "fp8"),
+        ("nvfp4", "fp8"),
     ]
     assert suggest(FACTS, WEIGHTS[-1:], GPUS, CHAT) == []  # NVFP4 only, no Blackwell
 
@@ -247,3 +248,13 @@ def test_tokens_per_s_reads_every_weight_once_4bit_as_8bit_and_slices_share_band
     assert tokens_per_s(sliced, {}, [parent, piece], WEIGHTS) is None
     alone = tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS[2:3])  # no 8-bit to compare
     assert alone == pytest.approx(DECODE_EFFICIENCY * 1000e9 / (18.12 * GIB))
+
+
+def test_kv_scale_from_the_catalogue_raises_the_kv_estimate(hub: respx.MockRouter) -> None:
+    result = CliRunner().invoke(
+        app, ["up", "--provider", "runpod", "--model", "gemma4-31b", "--dry-run"],
+        env={"COLUMNS": "200"},
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    # Sample facts: 80 KiB/token + 0.8 GiB fixed; x1.5 per token at 131,072 tokens, FP8 KV.
+    assert "KV 7.9 " in result.output

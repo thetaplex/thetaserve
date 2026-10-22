@@ -1,6 +1,6 @@
 # thetaserve: design brief v0.3
 
-Status: in build (M1 done, section 13.1; next M2). Date: 2026-10-22. This version merges the
+Status: in build (M2 done, section 13.2; next M3). Date: 2026-10-22. This version merges the
 decision records of 2026-10-20 to 2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
 (PDF, not kept in the repository).
 
@@ -195,13 +195,19 @@ qwen3.8-27b:
 gemma4-31b:
   hf_family: google/gemma-4-31B-it   # instruction-tuned; quantisations are made from this
   common_args: [--enable-prefix-caching, --reasoning-parser, gemma4,
-                --enable-auto-tool-choice, --tool-call-parser, gemma4]   # VERIFY
+                --enable-auto-tool-choice, --tool-call-parser, gemma4,
+                --limit-mm-per-prompt, '{"image": 0, "video": 0, "audio": 0}',
+                --max-num-seqs, '32']   # M2 pilot, 2026-10-22: RTX 6000 Ada, FP8 weights
+  kv_scale: 1.5   # M2 pilot: ~120 KiB per token in three runs; config.json gives 80
 ```
 
 `up` refuses to launch an image that contains `TODO`. Flags marked `VERIFY` have not run on
 hardware. Qwen3.8-27B needs `--max-num-seqs`: vLLM's default of 256 requests is more than the
 Mamba cache blocks of its linear-attention layers (187 on an A40 at 128K), and vLLM stops at
-start-up.
+start-up. Gemma 4 launches text-only: with image, video and audio input on, vLLM reserves
+memory for the encoders, and 128K did not fit on a 48 GB card (M2 pilot). `kv_scale` multiplies
+the KV cache per token from `config.json` by a measured factor (default 1). Qwen3.8-27B measured
+1.04, Gemma 4 31B 1.5 (section 13.2).
 
 ### 5.6 samples.json
 
@@ -259,7 +265,7 @@ aws:
    name (`AMPERE_48` → ampere). Skip GPUs whose pool does not map to an architecture. NVIDIA
    only. With `--device`, keep only that GPU, and stop with an error if it is unknown or sold
    out.
-5. **Fit.** weights + KV per token × context + fixed KV + overhead (2 GiB)
+5. **Fit.** weights + KV per token × `kv_scale` × context + fixed KV + overhead (3.2 GiB)
    ≤ VRAM × `gpu_memory_utilization` (0.92). Do not use FP8 KV cache on Ampere. Use FP4
    weights only on Blackwell.
 6. **Rows.** For each weight precision (16, 8, 4 bits, as available) and each KV-cache
@@ -291,10 +297,11 @@ Per sequence, for the two launch models:
 | Model | KV per token (BF16) | Fixed KV | 128K KV BF16 / FP8, fixed KV included |
 | --- | --- | --- | --- |
 | Qwen3.8-27B | 64 KiB (16 of 64 layers full attention, 4 KV heads, head dim 256) | small linear-attention state | 8.0 / 4.0 GiB |
-| Gemma 4 31B | 80 KiB (10 global layers, 4 KV heads, head dim 512) | ~0.8 GiB (50 sliding-window layers, window 1024) | 10.8 / 5.4 GiB |
+| Gemma 4 31B | 80 KiB (10 global layers, 4 KV heads, head dim 512); vLLM needs ~120 KiB (`kv_scale` 1.5) | ~0.8 GiB (50 sliding-window layers, window 1024) | 15.8 / 7.9 GiB |
 
 Ampere and Ada: the A6000 and A40 (Ampere) have no native FP8. vLLM runs FP8 weights with
-weight-only kernels. Token generation speed is almost the same as on Ada cards, because memory
+weight-only kernels. Block-quantised FP8 (`RedHatAI/...-FP8-block`) also runs weight-only on Ada
+(RTX 6000 Ada, M2 pilot). Token generation speed is almost the same as on Ada cards, because memory
 bandwidth limits it. Prefill of a long prompt is approximately 2-3× slower. Prefix caching
 hides most of this for coding agents, because their prompts repeat between steps.
 
@@ -464,7 +471,7 @@ thetaserve/
 | --- | --- | --- |
 | M0 (done) | Scaffold, pyproject with extras, config models, catalogues, resolver, fit check, `list`, `up --dry-run`, tests, CI | `thetaserve up ... --dry-run` prints a vLLM command |
 | M1 (done 2026-10-22) | Runpod adapter, secrets, state, health, `up/status/env/logs/stop/down`; options from live data (D1, D2, D4); pinned revision (D3) | Qwen3.8-27B runs on a Runpod 48 GB GPU and a coding agent connects |
-| M2 | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
+| M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
 | M3 | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
 | M4 | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
 | M5 | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
@@ -476,12 +483,14 @@ thetaserve/
   (section 8.1). A streamed response of 299 s passed the proxy without a cut.
 - Runpod pod self-stop credential (section 8.1).
 - Quality of the FP8 and 4-bit variants for both models.
-- vLLM version that serves both models (Qwen: v0.32.0 works); flags to disable image input;
-  Gemma tool parser. Qwen's `qwen3` reasoning and `qwen3_xml` tool parsers work.
-- FP8 KV cache on Ampere in the pinned vLLM.
+- ~~vLLM version that serves both models; flags to disable image input; Gemma tool parser.~~
+  Resolved in M2: v0.32.0 serves both. `--limit-mm-per-prompt` with every modality at 0 runs
+  Gemma text-only. The `gemma4` tool and reasoning parsers work (section 13.2).
+- FP8 KV cache on Ampere in the pinned vLLM. On Ada it works (M2 pilot).
 - ~~Does `--api-key` protect `/metrics`?~~ No; thetaserve's guard does (section 9). Confirmed on
   2026-10-22: `/metrics`, `/load`, `/version` and `/v1/models` give 401 without the key, `/health` 200.
-- Does either model need a Hugging Face token?
+- Does either model need a Hugging Face token? `Qwen/Qwen3.8-27B-FP8` and
+  `RedHatAI/gemma-4-31B-it-FP8-block` downloaded without one. Other variants not checked.
 - IOPS cost of Runpod global volumes (beta). Cold start without a cache volume: 3 min 52 s
   from pod creation to ready (M1 pilot).
 - The `tok/s` factor (section 6.1, point 8): the A40 decoded 20.2 tok/s against an estimate of
@@ -509,6 +518,42 @@ prefix-cache hit rate 59 %.
 Two launches before this one failed: vLLM's default `--max-num-seqs` (section 5.5), and an API
 key with a leading `-` (section 9). `up` now stops when the vLLM log shows an error, instead of
 waiting the full 40 minutes.
+
+### 13.2 M2 pilot record (2026-10-22)
+
+RedHatAI/gemma-4-31B-it-FP8-block at revision `d7242548`, 96K context, FP8 KV cache, on one
+Runpod Secure RTX 6000 Ada (48 GB, $0.99/h), vLLM v0.32.0, text-only, `--max-num-seqs 32`, no
+cache volume.
+
+| Measure | Estimate | Measured |
+| --- | --- | --- |
+| Weights | 31.0 GiB | 31.07 GiB |
+| Overhead | 2 GiB | 2.84 GiB peak activation + 0.08 GiB CUDA graphs + 0.22 GiB non-torch = 3.14 GiB |
+| KV cache | | 9.46 GiB, 162,789 tokens: ~61 KiB per token at FP8, ~122 KiB at BF16 |
+| Decode, one request | ~16 tok/s | 23.1 tok/s, request latency included |
+| vLLM start to ready | | 4 min 5 s (weights download 103 s, compile and warm-up 96 s) |
+
+Checks that passed: `/metrics` and `/v1/models` give 401 without the key, `/health` 200; a tool
+call through `gemma4`; reasoning separated through `gemma4`; the pi coding agent worked with
+the endpoint.
+
+Three launches before this one failed at start-up, each with too little KV cache memory for
+one full sequence:
+
+| GPU (48 GB), KV cache | Context | Flags | KV vLLM needed | Free for KV |
+| --- | --- | --- | --- | --- |
+| Probably L40, FP8 (row not recorded) | 131,072 | image input on, `--max-num-seqs` 256 | 7.3 GiB | 6.81 GiB |
+| Not recorded | not recorded | not recorded | not recorded | not recorded |
+| Not recorded, BF16 | 102,400 | text-only, 32 | 11.73 GiB | 7.25 GiB |
+
+The first and third, and the successful run, give approximately 120 KiB per token at BF16,
+against 80 KiB from `config.json` (1.5×). The
+cause is not known; `kv_scale` records the factor until it is. With image input on, weights and
+overhead used 37.4 GiB; text-only, 34.2 GiB. The second crash lost its log; `up` now saves the
+log of a crash to the state directory.
+
+Calibration from both pilots: overhead 3.2 GiB for all models (the larger measurement);
+`kv_scale` 1.5 for Gemma 4 31B, 1 for Qwen3.8-27B (measured 1.04). Recheck in `bench` (M4).
 
 ## 14. Rules for contributors (and agents)
 

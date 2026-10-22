@@ -51,7 +51,7 @@ No row has FP8 KV cache on Ampere. Only Blackwell rows have FP4 weights.
 
 Columns:
 
-- `memory`: weights + KV cache for one full-context sequence + 2 GiB overhead, against
+- `memory`: weights + KV cache for one full-context sequence + 3.2 GiB overhead, against
   VRAM × 0.92.
 - `tok/s`: estimate for one request at short context, 0.6 × memory bandwidth
   (`bandwidth.yaml`) ÷ weight size. Rows below 8 bits use the size of the smallest 8-bit

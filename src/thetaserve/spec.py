@@ -9,7 +9,7 @@ from thetaserve.config import KvCacheDtype
 
 GIB = 1024**3
 DEFAULT_GPU_MEMORY_UTILIZATION = 0.92
-DEFAULT_OVERHEAD_GB = 2.0
+DEFAULT_OVERHEAD_GB = 3.2  # largest measured, Gemma 4 31B (DESIGN.md section 13.2)
 API_KEY_ENV = "VLLM_API_KEY"
 # Expanded by the shell on the host, so the key never appears in the rendered command.
 _API_KEY_REF = f'"${API_KEY_ENV}"'

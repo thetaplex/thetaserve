@@ -33,6 +33,7 @@ class _Strict(BaseModel):
 class Model(_Strict):
     hf_family: str  # base Hugging Face repository
     common_args: list[str] = Field(default_factory=list)  # family vLLM flags
+    kv_scale: PositiveFloat = 1.0  # KV cache per token vLLM needs / the size config.json gives
 
 
 class RunPodConfig(_Strict):

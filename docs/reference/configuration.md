@@ -22,9 +22,10 @@ launches. `up` refuses an image that contains `TODO`.
 | `<key>` | string | Short model name for `--model` |
 | `hf_family` | string | Base Hugging Face repository |
 | `common_args` | list of strings | `vllm serve` arguments for this model family, for example the tool-call and reasoning parsers |
+| `kv_scale` | positive number, default 1 | Measured factor on the KV cache per token from `config.json`. Gemma 4 31B: 1.5 |
 
 `--model` also takes a Hugging Face repository. If it is the `hf_family` of an entry, `up` uses
-that entry's `common_args`. Otherwise `up` launches without family arguments.
+that entry's `common_args` and `kv_scale`. Otherwise `up` launches without family arguments.
 
 ## presets.yaml
 

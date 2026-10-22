@@ -16,7 +16,7 @@ model-specific vLLM flags. This page explains how thetaserve makes these choices
 
 A combination fits a GPU when:
 
-weights + KV cache for the full context + 2 GiB overhead ≤ 92 % of VRAM.
+weights + KV cache for the full context + 3.2 GiB overhead ≤ 92 % of VRAM.
 
 For each combination of weight precision (16, 8, 4 bits) and KV-cache precision (16-bit, FP8),
 `up` shows the cheapest GPU in stock that fits. Thus a new GPU or a new quantised variant is
@@ -92,5 +92,6 @@ launch on a specific GPU, for example for a benchmark or a bug report. Add `--co
 
 No metadata gives two things: the vLLM tool-call and reasoning parsers for each model family,
 and the memory overhead. The parsers come from the `common_args` of the model's entry in
-`models.yaml`. A model without an entry launches without them, with a warning. The 2 GiB
-overhead is an estimate until measured runs calibrate it.
+`models.yaml`. A model without an entry launches without them, with a warning. The 3.2 GiB
+overhead is the larger of two measurements (Qwen3.8-27B, Gemma 4 31B). For Gemma 4, vLLM also
+needs 1.5× the KV cache that `config.json` gives; `kv_scale` in `models.yaml` records that.
