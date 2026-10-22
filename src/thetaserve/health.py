@@ -9,6 +9,9 @@ import httpx
 POLL_S = 10.0
 # vLLM logs e.g. "GPU KV cache size: 147,456 tokens" once memory profiling is done.
 _KV_TOKENS = re.compile(r"GPU KV cache size:\s*([\d,]+)\s*tokens")
+# The last line of a Python traceback ("ValueError: ...", maybe behind vLLM's
+# "(EngineCore pid=1) " prefix) or an argument error ("vllm serve: error: ...").
+_CRASH = re.compile(r"^(?:\(\w+ pid=\d+\) )?(?:\w+Error|vllm serve: error): .+")
 
 
 class NotReady(Exception):
@@ -61,3 +64,13 @@ def kv_cache_tokens(lines: Iterable[str]) -> int | None:
         if match := _KV_TOKENS.search(line):
             found = int(match[1].replace(",", ""))
     return found
+
+
+def crash_line(lines: Iterable[str]) -> str | None:
+    """The first error line in vLLM's log, or None while it has not crashed.
+
+    The first, because vLLM's later errors only say "see root cause above".
+    """
+    # ponytail: a pattern match on the log; a container restart count would be exact
+    # if Runpod exposed one.
+    return next((line.strip() for line in lines if _CRASH.match(line.strip())), None)

@@ -9,43 +9,22 @@ Resolved with [platformdirs](https://platformdirs.readthedocs.io/).
 | User config (catalogue overrides, `secrets.json`) | `~/.config/thetaserve/` | `~/Library/Application Support/thetaserve/` | `%LOCALAPPDATA%\thetaserve\` |
 | State (`state.json`) | `~/.local/state/thetaserve/` | `~/Library/Application Support/thetaserve/` | `%LOCALAPPDATA%\thetaserve\` |
 
-Built-in catalogues ship in the package at `src/thetaserve/catalog/`. A user file's top-level
-keys replace built-in keys whole.
-
-## devices.yaml
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `<key>` | string | Device name used by `--device`, e.g. `a6000-48g` |
-| `vram_gb` | positive integer | GPU memory, GiB |
-| `arch` | `ampere`, `ada`, `hopper`, `blackwell` | Selects `arch_overrides` |
-| `providers.runpod.gpu_type_id` | string | Runpod GPU ID, e.g. `NVIDIA A40` |
-| `providers.aws.instance_type` | string | EC2 instance type (AWS adapter not implemented yet) |
+The built-in files are in the package at `src/thetaserve/catalog/`. A user file with the same
+name overrides them. Its top-level keys replace all of the built-in entry with the same key.
 
 ## models.yaml
 
-Top level: `schema_version: 1` (built-in only), `vllm_image` (image and tag for every profile).
+Top level: `schema_version: 2` (built-in only) and `vllm_image`, the image and tag for all
+launches. `up` refuses an image that contains `TODO`.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `<key>` | string | Model name used by `--model` |
+| `<key>` | string | Short model name for `--model` |
 | `hf_family` | string | Base Hugging Face repository |
-| `min_vllm` | string | Lowest vLLM version known to serve it |
-| `common_args` | list of strings | `vllm serve` arguments for every tier |
-| `kv_bytes_per_token` | integer ≥ 0 | KV-cache bytes per token at BF16; halved for FP8 KV |
-| `kv_fixed_bytes` | integer ≥ 0 | Context-independent KV state, bytes (default 0) |
-| `tiers.<NNg>` | mapping | Profile for GPUs with at least NN GiB |
-| `tiers.*.repo` | string | Repository to serve |
-| `tiers.*.weights_gb` | positive number | Weight size, GiB |
-| `tiers.*.max_model_len` | positive integer | Context length, tokens |
-| `tiers.*.kv_cache_dtype` | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2` | KV-cache precision |
-| `tiers.*.extra_args` | list of strings | Extra `vllm serve` arguments |
-| `tiers.*.arch_overrides.<arch>` | mapping | Any tier field except `arch_overrides`, per architecture |
+| `common_args` | list of strings | `vllm serve` arguments for this model family, for example the tool-call and reasoning parsers |
 
-Tier selection: the largest tier not above the device's `vram_gb`.
-
-Fit check: `weights_gb + KV(max_model_len) + 2.0` ≤ `vram_gb × 0.92`, else `up` fails unless
-`--force`.
+`--model` also takes a Hugging Face repository. If it is the `hf_family` of an entry, `up` uses
+that entry's `common_args`. Otherwise `up` launches without family arguments.
 
 ## presets.yaml
 
@@ -56,14 +35,20 @@ Use cases for `up --use`.
 | `<key>` | string | Preset name |
 | `min_context` | positive integer or `null` | Context in tokens; `null` for the model's maximum |
 | `tools` | boolean | Warn when no tool-call parser is known for the model |
-| `min_bits` | positive integer | Precision floor for the default option; lower rows are still listed |
+| `min_bits` | positive integer | Precision floor for the default option. The table still shows lower rows |
 
 Built in: `coding` (131072, tools, 8), `chat` (32768, no tools, 4), `research` (`null`, tools, 8).
 
 ## bandwidth.yaml
 
-GPU memory bandwidth in GB/s from vendor spec sheets, keyed by Runpod GPU ID, used only for the
-`tok/s` estimate. MIG slices take their parent's bandwidth in proportion to memory.
+GPU memory bandwidth in GB/s from vendor data sheets, keyed by Runpod GPU ID. Used only for the
+`tok/s` estimate. A MIG slice gets its parent's bandwidth in proportion to its memory.
+
+## samples.json
+
+Built in only. A dated sample of the Runpod GPU catalogue (NVIDIA GPUs only) and of the
+Hugging Face data of each built-in model. `up --dry-run` uses it when no Runpod key is
+available. `just samples` fetches it again.
 
 ## providers.yaml
 
@@ -83,8 +68,8 @@ GPU memory bandwidth in GB/s from vendor spec sheets, keyed by Runpod GPU ID, us
 ## Secrets
 
 Lookup order, first hit wins: environment variable, system keyring (service `thetaserve`),
-`secrets.json` (mode 600) in the user config directory. Writes go to the keyring when a backend
-exists, else to the file.
+`secrets.json` (mode 600) in the user config directory. thetaserve writes to the keyring when a
+backend is available, else to the file.
 
 | Entry | Environment variable | Written by |
 | --- | --- | --- |
@@ -92,13 +77,14 @@ exists, else to the file.
 | `hf` | `HF_TOKEN` | `setup` |
 | `deployment/<name>/api-key` | none | `up`; deleted by `down` |
 
-Secrets are never written to `state.json` or printed unmasked.
+thetaserve never writes secrets to `state.json` and never shows them unmasked.
 
 ## Pod contents (Runpod)
 
 | Item | Value |
 | --- | --- |
-| Command | `/bin/bash -c "exec vllm serve <repo> --port <port> --api-key $VLLM_API_KEY ..."` |
+| Command | `/bin/bash -c` with a script that writes `/tmp/thetaserve/thetaserve_guard.py`, then runs `exec vllm serve <repo> --port <port> --api-key "$VLLM_API_KEY" --middleware thetaserve_guard.RequireKey ...` |
+| Unauthenticated paths | `/health` only |
 | Environment | `VLLM_API_KEY`; `HF_TOKEN` if stored; `HF_HOME=/runpod-volume/huggingface` with a cache volume |
 | Port | `<port>/http`, served at `https://<pod-id>-<port>.proxy.runpod.net/v1` |
 | Runpod API | REST v2, `https://api.runpod.io/v2`, Bearer authentication |

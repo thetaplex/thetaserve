@@ -41,7 +41,8 @@ def test_delete_missing_is_fine() -> None:
 def test_api_keys_are_long_and_unique() -> None:
     keys = {secrets.new_api_key() for _ in range(100)}
     assert len(keys) == 100
-    assert all(len(k) >= 43 for k in keys)  # 32 bytes, base64url
+    assert all(len(k) == 64 for k in keys)  # 32 bytes, hex
+    assert not any(k.startswith("-") for k in keys)  # vllm serve reads "-..." as an option
 
 
 def test_mask_hides_most_of_the_value() -> None:

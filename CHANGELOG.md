@@ -8,17 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Built-in device, model and provider catalogues, overridable from the user config directory.
-- Resolver that turns provider x device x model into a launch spec, with a memory-fit check.
-- `thetaserve list models|devices|providers`.
-- `thetaserve up --dry-run`, printing the resolved profile, the `vllm serve` command and the provider request.
+- Built-in presets, models and providers, overridable from the user config directory.
+- `thetaserve list models|providers`.
+- `thetaserve up --dry-run`, printing the options, the `vllm serve` command and the provider request. Without a Runpod key it uses a packaged, dated sample of Runpod's GPU catalogue and the built-in models' Hugging Face data, so it works offline; `just samples` refreshes it.
 - Runpod adapter (REST API v2): pods on a shared network volume for the weights cache, placed where the GPU is in stock.
 - `thetaserve setup`, `up`, `status`, `env`, `logs`, `stop`, `start` and `down`.
 - A fresh API key for every launch; secrets from environment variables, the system keyring, or a mode-600 file when no keyring exists.
 - Local deployment state in the platform's state directory, without secrets.
 - `network_volume: null` in `providers.yaml` launches Runpod pods without a weights cache volume.
 - Documentation in `docs/`: tutorial, how-to guides, reference and explanation.
-- ADR 0001 (accepted): derive launch options from live model and GPU data.
-- ADR 0003 (proposed): trust weight publishers explicitly and pin the commit.
+- Design decisions D1 (accepted, derive launch options from live data), D2 (accepted, offer every precision) and D3 (proposed, trusted weight publishers) and D4 (accepted, remove device and tier files), in the decision log of `docs/DESIGN.md`.
 - `up` pins the chosen variant to the commit its sizes were read from (`vllm serve --revision`).
-- `up` without `--device` lists the cheapest GPU in stock for every weight precision (16, 8, 4 bits) and KV-cache precision (16-bit, FP8) that fits the model, cheapest first, from Hugging Face metadata and the Runpod GPU catalogue, and asks which to launch. `--use coding|chat|research` (presets in `presets.yaml`) sets the context and the precision floor for the default; `--min-precision` hides lower precisions; each row shows estimated tokens per second from GPU memory bandwidth (`bandwidth.yaml`); `--model` also takes a Hugging Face repo.
+- `up` lists the cheapest GPU in stock for every weight precision (16, 8, 4 bits) and KV-cache precision (16-bit, FP8) that fits the model, cheapest first, from Hugging Face metadata and the Runpod GPU catalogue, and asks which to launch. `--use coding|chat|research` (presets in `presets.yaml`) sets the context and the precision floor for the default; `--min-precision` hides lower precisions; each row shows estimated tokens per second from GPU memory bandwidth (`bandwidth.yaml`); `--model` also takes a Hugging Face repo; `--device` takes a Runpod GPU ID and limits the options to it.
+- `up` stops waiting and reports the error when the vLLM log shows a crash, instead of waiting 40 minutes.
+- The built-in vLLM image is `vllm/vllm-openai:v0.32.0`, and Qwen3.8-27B launches with `--max-num-seqs 32`, as run in the M1 pilot on an A40 (`docs/DESIGN.md` section 13.1).
+- Install with `uv tool install git+https://github.com/thetaplex/thetaserve`.
+- Launched servers require the API key on every path except `/health`, including `/metrics`, which vLLM's `--api-key` leaves open.

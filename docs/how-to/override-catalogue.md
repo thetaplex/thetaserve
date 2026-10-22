@@ -1,57 +1,56 @@
 # Override the catalogue
 
-Use this when a GPU you want is missing from `list devices`, or a built-in model profile still
-holds a `TODO` value (`up` refuses those).
+Use this procedure to change a built-in file. For example: add a use-case preset, use a
+different vLLM image, or give a model a short name and its vLLM flags.
 
-1. Find your user config directory:
+1. Find your user config directory in the
+   [locations table](../reference/configuration.md#locations). On Linux it is
+   `~/.config/thetaserve/`.
 
-   ```sh
-   uv run python -c "from thetaserve.config import user_config_dir; print(user_config_dir())"
-   ```
+2. In that directory, create a file with the name of the built-in file: `presets.yaml`,
+   `bandwidth.yaml`, `models.yaml` or `providers.yaml`. Each top-level key replaces **all** of
+   the built-in entry with the same key. thetaserve does not merge the fields of an entry.
 
-2. Create `devices.yaml`, `models.yaml` or `providers.yaml` there. Each top-level key replaces
-   the built-in entry with the same key **whole**; fields are not merged within an entry.
-
-## Add a GPU
-
-Look up the Runpod GPU ID (for example in the Runpod console's GPU list), then:
+## Add a use-case preset
 
 ```yaml
-# devices.yaml
-a40-48g:
-  vram_gb: 48
-  arch: ampere
-  providers:
-    runpod: { gpu_type_id: "NVIDIA A40" }
+# presets.yaml
+agent-long: { min_context: 262144, tools: true, min_bits: 8 }
 ```
 
-## Fill a model profile
+Use it with `up --use agent-long`.
 
-Copy the model's whole entry from the built-in `src/thetaserve/catalog/models.yaml`, then
-replace the `TODO` values for the tier you need. A minimal 48 GB profile:
+## Use a different vLLM image
+
+The built-in image is the one measured in the last pilot. To try a newer one:
 
 ```yaml
 # models.yaml
-vllm_image: vllm/vllm-openai:v0.32.0
-
-qwen3.8-27b:
-  hf_family: Qwen/Qwen3.8-27B
-  min_vllm: "0.17"
-  common_args: [--enable-prefix-caching, --reasoning-parser, qwen3,
-                --enable-auto-tool-choice, --tool-call-parser, qwen3_xml]
-  kv_bytes_per_token: 65536
-  kv_fixed_bytes: 0
-  tiers:
-    48g: { repo: Qwen/Qwen3.8-27B-FP8, weights_gb: 28.75, max_model_len: 131072, kv_cache_dtype: auto }
+vllm_image: vllm/vllm-openai:latest   # not measured; pin a tag for repeat launches
 ```
 
-`weights_gb` is the total size of the repository's `.safetensors` files in GiB.
+A user `models.yaml` replaces only the keys it contains, so the built-in models stay.
+
+## Add a model
+
+Give the base repository a short name, and the vLLM flags of its family:
+
+```yaml
+# models.yaml
+qwen3.8-27b:
+  hf_family: Qwen/Qwen3.8-27B
+  common_args: [--enable-prefix-caching, --reasoning-parser, qwen3,
+                --enable-auto-tool-choice, --tool-call-parser, qwen3_xml,
+                --max-num-seqs, '32']
+```
+
+thetaserve reads the sizes and variants from Hugging Face. Do not add them.
 
 ## Check
 
 ```sh
-uv run thetaserve list devices
-uv run thetaserve up --provider runpod --device a40-48g --model qwen3.8-27b --dry-run
+thetaserve list models
+thetaserve up --provider runpod --model qwen3.8-27b --dry-run
 ```
 
-A YAML or validation error names the file and the field.
+A YAML or validation error shows the file and the field.

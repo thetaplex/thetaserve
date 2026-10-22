@@ -8,9 +8,9 @@ import pytest
 import respx
 
 from thetaserve.config import load_catalog
-from thetaserve.profiles import LaunchSpec, resolve
 from thetaserve.providers.base import ProviderError
 from thetaserve.providers.runpod import API_URL, RunPod
+from thetaserve.spec import LaunchSpec
 from thetaserve.state import Deployment
 
 GPU = "NVIDIA%20RTX%20A6000"
@@ -31,20 +31,6 @@ def _stock(**levels: str) -> dict[str, Any]:
         "price": {"secure": 0.49, "community": 0.33},
         "dataCenters": [{"id": dc, "name": dc, "availability": lvl} for dc, lvl in levels.items()],
     }
-
-
-@pytest.fixture
-def spec() -> LaunchSpec:
-    return resolve(
-        load_catalog(),
-        provider="runpod",
-        device="a6000-48g",
-        model="qwen3.8-27b",
-        port=8000,
-        idle_s=1800,
-        max_life_s=36000,
-        name="dev",
-    )
 
 
 @pytest.fixture
@@ -72,7 +58,7 @@ def test_plan_makes_no_requests_and_masks_secrets(runpod: RunPod, spec: LaunchSp
     assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1}
     assert body["ports"] == ["8000/http"]
     assert body["entrypoint"] == ["/bin/bash", "-c"]
-    assert body["cmd"][0].startswith("exec vllm serve ")
+    assert body["cmd"] == [spec.script()]
 
 
 def test_plan_works_without_credentials(spec: LaunchSpec) -> None:

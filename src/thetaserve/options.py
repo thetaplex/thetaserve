@@ -1,4 +1,4 @@
-"""Suggest launch options from live model and GPU data (docs/adr/0001-derive-launch-options.md)."""
+"""Suggest launch options from live model and GPU data (docs/DESIGN.md section 6)."""
 
 import re
 from dataclasses import dataclass
@@ -7,7 +7,8 @@ from typing import Any
 import httpx
 
 from thetaserve.config import Catalog, KvCacheDtype, Preset
-from thetaserve.profiles import (
+from thetaserve.providers.base import Gpu
+from thetaserve.spec import (
     API_KEY_ENV,
     DEFAULT_GPU_MEMORY_UTILIZATION,
     GIB,
@@ -17,7 +18,6 @@ from thetaserve.profiles import (
     estimate,
     vllm_args,
 )
-from thetaserve.providers.base import Gpu
 
 HF_URL = "https://huggingface.co"
 # ponytail: share of peak memory bandwidth one vLLM request reaches while decoding. A guess
@@ -119,7 +119,7 @@ def model_facts(repo: str, config: dict[str, Any]) -> ModelFacts:
         types = t.get("layer_types") or ["full_attention"] * t["num_hidden_layers"]
         max_context = t["max_position_embeddings"]
     except KeyError as exc:
-        raise ResolveError(f"{repo}: config.json has no {exc}; pin --device instead") from None
+        raise ResolveError(f"{repo}: config.json has no {exc}") from None
     # ponytail: linear-attention (Mamba, DeltaNet) state is ignored as small and per-sequence;
     # add it if calibration shows the estimate running short for such models.
     full = sum(kind == "full_attention" for kind in types)
@@ -229,7 +229,7 @@ def no_options(facts: ModelFacts, preset: Preset, context: int | None) -> str:
     context = context or min(preset.min_context or facts.max_context, facts.max_context)
     return (
         f"no GPU in stock fits {facts.repo} at {context:,} tokens. Try a smaller --context or "
-        "another --use, or pin --device."
+        "another --use."
     )
 
 
@@ -253,7 +253,7 @@ def to_spec(
         provider=provider,
         device=o.gpu.id,
         model=model,
-        tier=o.weights.label,
+        weights=o.weights.label,
         sku={"gpu_type_id": o.gpu.id},
         image=catalog.vllm_image,
         repo=o.weights.repo,

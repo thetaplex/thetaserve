@@ -8,7 +8,7 @@ import platformdirs
 from pydantic import BaseModel, Field
 
 from thetaserve._files import write_private
-from thetaserve.profiles import LaunchSpec
+from thetaserve.spec import LaunchSpec
 
 FILE_NAME = "state.json"
 

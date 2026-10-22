@@ -15,19 +15,18 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from thetaserve import __version__, health, options, secrets, state
+from thetaserve import __version__, health, options, samples, secrets, state
 from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
-from thetaserve.profiles import (
+from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
+from thetaserve.providers.base import Gpu
+from thetaserve.providers.runpod import RunPod
+from thetaserve.spec import (
     API_KEY_ENV,
     DEFAULT_GPU_MEMORY_UTILIZATION,
     DEFAULT_OVERHEAD_GB,
     LaunchSpec,
-    Overrides,
     ResolveError,
-    resolve,
 )
-from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
-from thetaserve.providers.runpod import RunPod
 from thetaserve.state import Deployment, DeploymentNotFound
 
 app = typer.Typer(
@@ -45,6 +44,7 @@ HF_SECRET = "hf"  # noqa: S105 - name of a secrets-store entry, not a secret
 HF_ENV = "HF_TOKEN"
 RUNNING_TIMEOUT_S = 20 * 60
 READY_TIMEOUT_S = 40 * 60
+CRASH_CHECK_S = 60
 _STOCK = {1: "low", 2: "medium", 3: "high"}
 
 NameArg = Annotated[str | None, typer.Argument(help="Deployment name; optional if only one.")]
@@ -65,7 +65,6 @@ class Precision(StrEnum):
 
 class Kind(StrEnum):
     models = "models"
-    devices = "devices"
     providers = "providers"
 
 
@@ -176,23 +175,17 @@ def _stored(what: str, where: secrets.Store) -> None:
 
 @app.command("list")
 def list_(kind: Annotated[Kind, typer.Argument(help="What to list.")]) -> None:
-    """List the catalogue of models, devices or providers."""
+    """List the built-in and user models or providers."""
     catalog = _catalog()
     match kind:
         case Kind.models:
-            table = Table("model", "hf family", "tiers", "min vLLM")
+            table = Table("model", "hf family", "vLLM flags")
             for key, m in sorted(catalog.models.items()):
-                tiers = ", ".join(k for _, k, _ in m.tiers_by_size())
-                table.add_row(key, m.hf_family, tiers, m.min_vllm)
-        case Kind.devices:
-            table = Table("device", "VRAM (GiB)", "arch", "providers")
-            for key, d in sorted(catalog.devices.items()):
-                table.add_row(key, str(d.vram_gb), d.arch, ", ".join(sorted(d.providers)))
+                table.add_row(key, m.hf_family, " ".join(m.common_args))
         case Kind.providers:
-            table = Table("provider", "devices")
+            table = Table("provider")
             for name in catalog.providers.names():
-                devices = sorted(k for k, d in catalog.devices.items() if name in d.providers)
-                table.add_row(name, ", ".join(devices))
+                table.add_row(name)
     out.print(table)
 
 
@@ -204,7 +197,7 @@ def up(
     ],
     device: Annotated[
         str | None,
-        typer.Option(help="Pin a device from `list devices`; omit to choose from live options."),
+        typer.Option(help="Provider GPU ID such as 'NVIDIA A40'; show options on it only."),
     ] = None,
     use: Annotated[
         str, typer.Option(help="Use case for the options: coding, chat or research.")
@@ -214,10 +207,10 @@ def up(
     ] = None,
     port: Annotated[int, typer.Option(min=1, max=65535, help="Port vLLM listens on.")] = 8000,
     context: Annotated[
-        int | None, typer.Option(min=1, help="Override the profile's max context (tokens).")
+        int | None, typer.Option(min=1, help="Context length in tokens; overrides --use.")
     ] = None,
     kv_cache_dtype: Annotated[
-        KvDtype | None, typer.Option(help="Override the profile's KV-cache dtype.")
+        KvDtype | None, typer.Option(help="KV-cache dtype; default shows auto and fp8.")
     ] = None,
     extra_arg: Annotated[
         list[str] | None, typer.Option(help="Extra vLLM argument; repeat for several.")
@@ -228,58 +221,41 @@ def up(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Print what would be launched; create nothing.")
     ] = False,
-    force: Annotated[bool, typer.Option("--force", help="Skip the memory-fit check.")] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask before launching.")] = False,
 ) -> None:
     """Launch a model on a rented GPU.
 
-    Without --device, lists the cheapest GPUs in stock that fit the model for --use, and asks
-    which to launch.
+    Lists the cheapest GPU in stock that fits the model for every weight and KV-cache precision,
+    and asks which to launch.
     """
     catalog = _catalog()
-    kv: KvCacheDtype | None = kv_cache_dtype.value if kv_cache_dtype else None
     with _errors():
-        if device is not None:
-            spec = resolve(
-                catalog,
-                provider=provider,
-                device=device,
-                model=model,
-                port=port,
-                idle_s=parse_duration(idle),
-                max_life_s=parse_duration(max_life),
-                name=name,
-                overrides=Overrides(
-                    context=context, kv_cache_dtype=kv, extra_args=extra_arg or [], force=force
-                ),
-            )
-            adapter = get_provider(spec.provider, catalog)
-        else:
-            adapter = get_provider(provider, catalog)
-            spec = _pick(
-                catalog,
-                adapter,
-                provider=provider,
-                model=model,
-                use=use,
-                min_bits=int(min_precision.value.removesuffix("bit")) if min_precision else None,
-                context=context,
-                kv_cache_dtype=kv,
-                extra_args=extra_arg or [],
-                port=port,
-                idle_s=parse_duration(idle),
-                max_life_s=parse_duration(max_life),
-                name=name,
-                choose=not (yes or dry_run),
-            )
-            yes = True  # choosing an option is the go-ahead
+        adapter = get_provider(provider, catalog)
+        spec = _pick(
+            catalog,
+            adapter,
+            provider=provider,
+            model=model,
+            device=device,
+            use=use,
+            min_bits=int(min_precision.value.removesuffix("bit")) if min_precision else None,
+            context=context,
+            kv_cache_dtype=kv_cache_dtype.value if kv_cache_dtype else None,
+            extra_args=extra_arg or [],
+            port=port,
+            idle_s=parse_duration(idle),
+            max_life_s=parse_duration(max_life),
+            name=name,
+            choose=not (yes or dry_run),
+            dry_run=dry_run,
+        )
 
     if dry_run:
         _print_dry_run(spec, adapter)
         return
 
     with _errors():
-        _launch(spec, adapter, yes)
+        _launch(spec, adapter)
 
 
 def _pick(
@@ -288,6 +264,7 @@ def _pick(
     *,
     provider: str,
     model: str,
+    device: str | None,
     use: str,
     min_bits: int | None,
     context: int | None,
@@ -298,10 +275,14 @@ def _pick(
     max_life_s: int,
     name: str | None,
     choose: bool,
+    dry_run: bool,
 ) -> LaunchSpec:
-    """Show the cheapest options for `model` and return the chosen one as a LaunchSpec."""
+    """Show the cheapest options for `model` and return the chosen one as a LaunchSpec.
+
+    Choosing an option is the go-ahead to launch it.
+    """
     if not isinstance(adapter, RunPod):
-        raise ResolveError(f"{provider} has no live GPU catalogue; pass --device")
+        raise ResolveError(f"{provider} has no GPU catalogue")
     if use not in catalog.presets:
         raise ResolveError(f"unknown use {use!r}; choose one of: {', '.join(catalog.presets)}")
     preset = catalog.presets[use]
@@ -309,9 +290,18 @@ def _pick(
     if choose and not sys.stdin.isatty():
         _fail("Choosing an option needs a terminal. Pass --yes to take the first option.")
 
+    sample = samples.load() if dry_run and not adapter.has_key else None
+    if sample:
+        err.print(
+            f"[yellow]No Runpod key: sample GPU prices, stock and model data from "
+            f"{sample['fetched']}, not live. Run `thetaserve setup` for live options.[/yellow]"
+        )
     with out.status(f"Finding GPUs and weights for {repo}…"):
-        facts, weights = options.fetch_model(repo, secrets.get(HF_SECRET, env=HF_ENV))
-        gpus = adapter.gpus()
+        sampled = samples.model(sample, repo) if sample else None
+        facts, weights = sampled or options.fetch_model(repo, secrets.get(HF_SECRET, env=HF_ENV))
+        gpus = samples.gpus(sample, adapter.cfg.cloud_type) if sample else adapter.gpus()
+        if device is not None:
+            gpus = _on_device(gpus, device)
         found = options.suggest(
             facts,
             weights,
@@ -385,7 +375,7 @@ def _pick(
 
 def _model_source(catalog: Catalog, model: str) -> tuple[str, list[str]]:
     """Base repo and family vLLM flags for a catalogue key or a Hugging Face repo."""
-    # ponytail: family flags come from the catalogue entry with the same base repo; ADR 0001
+    # ponytail: family flags come from the catalogue entry with the same base repo; DESIGN.md 5.4
     # keys them by architecture instead, so other repos of a family pick them up. Do that once
     # a second model of a known family is wanted.
     if entry := catalog.models.get(model):
@@ -399,11 +389,23 @@ def _model_source(catalog: Catalog, model: str) -> tuple[str, list[str]]:
     return model, family.common_args if family else []
 
 
-def _launch(spec: LaunchSpec, adapter: Provider, yes: bool) -> None:
-    if untested := [v for v in (spec.image, spec.repo) if "TODO" in v]:
+def _on_device(gpus: list[Gpu], device: str) -> list[Gpu]:
+    on = [g for g in gpus if g.id == device]
+    if not on:
+        raise ResolveError(
+            f"unknown GPU {device!r}; use a Runpod GPU ID such as 'NVIDIA A40'. "
+            "Leave out --device to see the options."
+        )
+    if not on[0].stock:
+        raise ResolveError(f"{device} is sold out; leave out --device to see other GPUs")
+    return on
+
+
+def _launch(spec: LaunchSpec, adapter: Provider) -> None:
+    if "TODO" in spec.image:
         _fail(
-            f"this profile is not tested yet ({', '.join(untested)}). Set real values in a "
-            "user models.yaml (see README) or wait for the M2 pilot."
+            f"the vLLM image is not pinned ({spec.image}). Set vllm_image to a tag in "
+            "your user models.yaml."
         )
     if spec.name in state.load().deployments:
         _fail(f"a deployment named {spec.name!r} exists; pass --name or `thetaserve down` it")
@@ -415,8 +417,6 @@ def _launch(spec: LaunchSpec, adapter: Provider, yes: bool) -> None:
         "[yellow]Automatic idle stop is not implemented yet (M3); "
         f"run `thetaserve stop {spec.name}` when done.[/yellow]"
     )
-    _confirm("Launch?", yes)
-
     api_key = secrets.new_api_key()
     env = {API_KEY_ENV: api_key}
     if hf := secrets.get(HF_SECRET, env=HF_ENV):
@@ -444,8 +444,15 @@ def _launch(spec: LaunchSpec, adapter: Provider, yes: bool) -> None:
             status.update("Loading the model (first start downloads the weights)…")
             endpoint = adapter.endpoint(d)
 
+            checked = 0.0
+
             def on_wait(elapsed: float, seen: str) -> None:
+                nonlocal checked
                 status.update(f"Loading the model… {_human(elapsed)} ({seen})")
+                if elapsed - checked >= CRASH_CHECK_S:  # vLLM restarts in a loop on a crash
+                    checked = elapsed
+                    if line := health.crash_line(adapter.logs(d, follow=False, tail=500)):
+                        raise health.NotReady(f"vLLM crashed: {line}")
 
             health.wait_ready(endpoint.base_url, api_key, READY_TIMEOUT_S, on_wait=on_wait)
     except (ProviderError, health.NotReady, KeyboardInterrupt) as exc:
@@ -476,15 +483,14 @@ def _print_dry_run(spec: LaunchSpec, adapter: Provider) -> None:
         ("name", spec.name),
         ("provider", f"{spec.provider} ({', '.join(f'{k}={v}' for k, v in spec.sku.items())})"),
         ("device", spec.device),
-        ("model", f"{spec.model} (tier {spec.tier}, repo {spec.repo})"),
+        ("model", f"{spec.model} ({spec.weights}, repo {spec.repo})"),
         ("image", spec.image),
         ("port", str(spec.port)),
         ("context", f"{spec.max_model_len} tokens, KV cache {spec.kv_cache_dtype}"),
         (
             "memory",
             f"weights {fit.weights_gb:.1f} + KV {fit.kv_cache_gb:.1f} + overhead "
-            f"{fit.overhead_gb:.1f} = {fit.total_gb:.1f} of {fit.budget_gb:.1f} GiB usable"
-            + ("" if fit.fits else "  (does not fit; --force)"),
+            f"{fit.overhead_gb:.1f} = {fit.total_gb:.1f} of {fit.budget_gb:.1f} GiB usable",
         ),
         ("idle stop", f"{spec.idle_s // 60} min"),
         ("max life", f"{spec.max_life_s / 3600:g} h"),

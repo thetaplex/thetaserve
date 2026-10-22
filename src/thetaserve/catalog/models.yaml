@@ -1,36 +1,16 @@
-# Model profiles, keyed by memory tier. Sizes in GiB, KV constants in bytes at BF16.
-# Every TODO is replaced with a measured value during the pilot (DESIGN.md section 5.2).
-schema_version: 1
-vllm_image: vllm/vllm-openai:TODO-pin
+# vLLM image for every launch, and the vLLM flags of each model family that no metadata gives.
+# Keys are the short names `up --model` takes. Flags marked VERIFY are not yet run on hardware.
+schema_version: 2
+vllm_image: vllm/vllm-openai:v0.32.0   # M1 pilot, 2026-10-22
 
 qwen3.8-27b:
   hf_family: Qwen/Qwen3.8-27B
-  min_vllm: "0.17"
   common_args: [--enable-prefix-caching, --reasoning-parser, qwen3,
-                --enable-auto-tool-choice, --tool-call-parser, qwen3_xml]   # VERIFY in pilot
-  kv_bytes_per_token: 65536   # 16 full-attention layers x 4 KV heads x head dim 256 x 2 (K,V) x 2 B
-  kv_fixed_bytes: 0           # TODO: linear-attention state of the other 48 layers
-  tiers:
-    24g: { repo: TODO-4bit-AWQ-or-GPTQ, weights_gb: 18, max_model_len: 65536, kv_cache_dtype: fp8,
-           extra_args: [--limit-mm-per-prompt, '{"image":0}'] }   # VERIFY flag syntax; weights_gb TODO
-    48g: { repo: TODO-FP8, weights_gb: 28, max_model_len: 131072, kv_cache_dtype: auto }   # weights_gb TODO
-    80g: { repo: TODO-FP8-or-BF16, weights_gb: 28, max_model_len: 262144, kv_cache_dtype: auto }   # weights_gb TODO (FP8 estimate)
+                --enable-auto-tool-choice, --tool-call-parser, qwen3_xml,
+                # vLLM's default of 256 exceeds the Mamba cache blocks: 187 on an A40 at 128K.
+                --max-num-seqs, '32']   # M1 pilot, 2026-10-22: A40, FP8 weights
 
 gemma4-31b:
   hf_family: google/gemma-4-31B-it   # instruction-tuned; quantisations are made from this
-  min_vllm: TODO
   common_args: [--enable-prefix-caching, --reasoning-parser, gemma4,
-                --enable-auto-tool-choice, --tool-call-parser, gemma4]   # VERIFY in pilot
-  kv_bytes_per_token: 81920   # 10 global layers x 4 KV heads x head dim 512 x 2 (K,V) x 2 B
-  kv_fixed_bytes: 838860800   # ~0.8 GB: 50 sliding-window layers, window 1024
-  tiers:
-    24g: { repo: TODO-4bit, weights_gb: 18, max_model_len: 32768, kv_cache_dtype: fp8 }   # weights_gb TODO
-    48g:
-      repo: TODO-FP8
-      weights_gb: 30            # TODO
-      max_model_len: 131072
-      kv_cache_dtype: fp8
-      arch_overrides:
-        ampere: { kv_cache_dtype: auto }   # FP8 KV on Ampere unverified; BF16 KV fits (~30 GiB weights + ~11 GiB KV)
-    80g: { repo: TODO-FP8, weights_gb: 30, max_model_len: 262144, kv_cache_dtype: fp8 }   # weights_gb TODO
-    # NOTE: BF16 weights (~62 GB) + BF16 KV at 256K (~21 GB) do NOT fit in 80 GB; the v0.1 draft was wrong here.
+                --enable-auto-tool-choice, --tool-call-parser, gemma4]   # VERIFY

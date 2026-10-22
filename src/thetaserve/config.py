@@ -1,6 +1,5 @@
 """Catalogue models and loading: built-in YAML merged with the user's config directory."""
 
-import re
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
@@ -11,20 +10,16 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    NonNegativeInt,
     PositiveFloat,
     PositiveInt,
     TypeAdapter,
     ValidationError,
-    field_validator,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 type Arch = Literal["ampere", "ada", "hopper", "blackwell"]
 type KvCacheDtype = Literal["auto", "fp8", "fp8_e4m3", "fp8_e5m2"]
-
-_TIER_KEY = re.compile(r"^(\d+)g$")
 
 
 class ConfigError(Exception):
@@ -35,57 +30,9 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class Device(_Strict):
-    vram_gb: PositiveInt
-    arch: Arch
-    providers: dict[str, dict[str, str]]
-
-
-class TierOverride(_Strict):
-    repo: str | None = None
-    weights_gb: PositiveFloat | None = None
-    max_model_len: PositiveInt | None = None
-    kv_cache_dtype: KvCacheDtype | None = None
-    extra_args: list[str] | None = None
-
-
-class Tier(_Strict):
-    repo: str
-    weights_gb: PositiveFloat
-    max_model_len: PositiveInt
-    kv_cache_dtype: KvCacheDtype
-    extra_args: list[str] = Field(default_factory=list)
-    arch_overrides: dict[Arch, TierOverride] = Field(default_factory=dict)
-
-
 class Model(_Strict):
-    hf_family: str
-    min_vllm: str
-    common_args: list[str] = Field(default_factory=list)
-    kv_bytes_per_token: NonNegativeInt
-    kv_fixed_bytes: NonNegativeInt = 0
-    tiers: dict[str, Tier]
-
-    @field_validator("tiers")
-    @classmethod
-    def _tier_keys(cls, tiers: dict[str, Tier]) -> dict[str, Tier]:
-        if not tiers:
-            raise ValueError("at least one tier is required")
-        for key in tiers:
-            if not _TIER_KEY.match(key):
-                raise ValueError(f"tier key {key!r} must look like '48g'")
-        return tiers
-
-    def tiers_by_size(self) -> list[tuple[int, str, Tier]]:
-        """Tiers as (size in GiB, key, tier), smallest first."""
-        return sorted((tier_size_gb(k), k, t) for k, t in self.tiers.items())
-
-
-def tier_size_gb(key: str) -> int:
-    match = _TIER_KEY.match(key)
-    if match is None:
-        raise ValueError(f"invalid tier key {key!r}")
-    return int(match[1])
+    hf_family: str  # base Hugging Face repository
+    common_args: list[str] = Field(default_factory=list)  # family vLLM flags
 
 
 class RunPodConfig(_Strict):
@@ -121,7 +68,6 @@ class Preset(_Strict):
 
 class Catalog(_Strict):
     vllm_image: str
-    devices: dict[str, Device]
     models: dict[str, Model]
     providers: Providers
     presets: dict[str, Preset]
@@ -136,7 +82,6 @@ def load_catalog(user_dir: Path | None = None) -> Catalog:
     """Load the built-in catalogues, then let files in `user_dir` replace or add entries by key."""
     user_dir = user_config_dir() if user_dir is None else user_dir
 
-    devices, device_src = _merged("devices.yaml", user_dir)
     models, model_src = _merged("models.yaml", user_dir)
     providers, provider_src = _merged("providers.yaml", user_dir)
     presets, preset_src = _merged("presets.yaml", user_dir)
@@ -154,7 +99,6 @@ def load_catalog(user_dir: Path | None = None) -> Catalog:
 
     return Catalog(
         vllm_image=image,
-        devices=_validate(dict[str, Device], devices, device_src),
         models=_validate(dict[str, Model], models, model_src),
         providers=_validate(Providers, providers, provider_src),
         presets=_validate(dict[str, Preset], presets, preset_src),

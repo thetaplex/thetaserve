@@ -1,83 +1,103 @@
 # CLI reference
 
-`thetaserve <command> [options]`. Commands that take `[name]` default to the only deployment
-when there is one.
+`thetaserve <command> [options]`. If you have only one deployment, commands with `[name]` use
+it when you give no name.
 
 ## setup
 
-Store the Runpod API key and an optional Hugging Face token. Skips a prompt when
+Stores the Runpod API key and an optional Hugging Face token. Skips a prompt when
 `RUNPOD_API_KEY` or `HF_TOKEN` is set. Needs an interactive terminal.
 
 ## list
 
-`thetaserve list {models|devices|providers}`. Print the merged catalogue.
+`thetaserve list {models|providers}`. Shows the model names with their base repository and
+vLLM flags, or the providers.
 
 ## up
 
-Launch a model. Without `--device`, `up` lists, for each weight precision (16, 8, 4 bits) and
-KV-cache precision (16-bit, FP8), the cheapest GPU in stock that fits the model at the
-`--use` context, cheapest first, and asks which to launch. The default is the cheapest row
-that meets the use case's precision floor. `--yes` and `--dry-run` take it. With `--device`,
-`up` resolves the catalogue profile instead.
+Launches a model. `up` shows a table of options. Each row is the cheapest GPU in stock that
+fits the model at the `--use` context, for one weight precision (16, 8, 4 bits) and one
+KV-cache precision (16-bit, FP8). The cheapest row is first. `up` asks which row to launch.
+The default is the cheapest row that meets the precision floor of the use case. `--yes` and
+`--dry-run` take the default.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--provider` | required | `runpod` |
-| `--model` | required | Model key from `list models`, or a Hugging Face repo such as `Qwen/Qwen3.8-27B` |
-| `--device` | none | Pin a device key from `list devices` and skip the options |
+| `--model` | required | Model key from `list models`, or a Hugging Face repository such as `Qwen/Qwen3.8-27B` |
+| `--device` | none | Runpod GPU ID, such as `NVIDIA A40`. Shows only the options on that GPU. Error if the GPU is unknown or sold out |
 | `--use` | `coding` | Preset from `presets.yaml`: `coding`, `chat`, `research` |
-| `--min-precision` | none | `4bit`, `8bit` or `16bit`; hide lower weight precisions |
+| `--min-precision` | none | `4bit`, `8bit` or `16bit`. Removes lower weight precisions |
 | `--port` | `8000` | Port vLLM listens on, 1-65535 |
-| `--context` | profile or preset | Maximum context length in tokens |
-| `--kv-cache-dtype` | profile | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2` |
+| `--context` | from `--use` | Context length in tokens |
+| `--kv-cache-dtype` | `auto` and `fp8` | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2`. Shows only rows with this KV-cache precision |
 | `--extra-arg` | none | Extra `vllm serve` argument; repeatable |
 | `--idle` | `30m` | Idle stop (watchdog not implemented yet, M3) |
 | `--max-life` | `10h` | Lifetime stop (watchdog not implemented yet, M3) |
-| `--name` | `<model>-<device>` or `<model>-<gpu>` | Deployment name |
-| `--dry-run` | off | Print the spec, `vllm serve` command and masked request; create nothing |
-| `--force` | off | Skip the memory-fit check |
-| `--yes`, `-y` | off | Do not ask before launching; required when not interactive |
+| `--name` | `<model>-<gpu>` | Deployment name |
+| `--dry-run` | off | Show the spec, the `vllm serve` command and the masked request. Create nothing |
+| `--yes`, `-y` | off | Do not ask before the launch. Necessary when the terminal is not interactive |
 
-Options are computed from the model's Hugging Face `config.json`, its quantised variants
-(GGUF, MLX and unsupported formats skipped) and their `.safetensors` sizes at the current
-commit, which `vllm serve --revision` is then pinned to, and the Runpod GPU
-catalogue (NVIDIA only). FP8 KV cache is not offered on Ampere and FP4 weights only on
-Blackwell.
+Sources of the options:
 
-Columns: `memory` is weights + KV cache for one full-context sequence + 2 GiB overhead,
-against VRAM × 0.92. `tok/s` estimates one request at short context as 0.6 × memory bandwidth
-(`bandwidth.yaml`) ÷ weight size, timing weights below 8 bits as the smallest 8-bit variant;
-`?` when the GPU's bandwidth is unknown. None of these is measured yet. Options need the Runpod key; a dry run
-with `--device` does not.
+- the model's Hugging Face `config.json`;
+- its quantised variants, without GGUF, MLX and unsupported formats;
+- the `.safetensors` sizes of each variant at the current commit. `vllm serve --revision` pins
+  the launch to that commit;
+- the Runpod GPU catalogue, NVIDIA only.
 
-Steps: resolve and fit-check, print rate and confirm, generate and store a per-launch API key,
-create the pod, wait for `RUNNING` (20 min limit), wait for `GET /v1/models` (40 min limit),
-record vLLM's KV-cache capacity from the logs. Refuses profiles whose image or repo contains
-`TODO`, and names already in use.
+No row has FP8 KV cache on Ampere. Only Blackwell rows have FP4 weights.
+
+Columns:
+
+- `memory`: weights + KV cache for one full-context sequence + 2 GiB overhead, against
+  VRAM × 0.92.
+- `tok/s`: estimate for one request at short context, 0.6 × memory bandwidth
+  (`bandwidth.yaml`) ÷ weight size. Rows below 8 bits use the size of the smallest 8-bit
+  variant. `?` when the bandwidth of the GPU is not known.
+
+These values are estimates, not measurements.
+
+A launch needs the Runpod key. A dry run without the key uses the packaged `samples.json`
+instead of live GPU prices, stock and model data, and shows its date. For a model that is not
+in the sample, it reads the Hugging Face Hub.
+
+Steps:
+
+1. Find the options. Select one (the prompt, or the default with `--yes`).
+2. Show the rate.
+3. Make and store a per-launch API key.
+4. Create the pod.
+5. Wait for `RUNNING` (20 min limit).
+6. Wait for `GET /v1/models` (40 min limit).
+7. Record vLLM's KV-cache capacity from the logs.
+
+`up` refuses a vLLM image that contains `TODO`, and a name that is already in use.
 
 ## status
 
-`thetaserve status [name]`. Status, endpoint, uptime and cost so far for the current run.
+`thetaserve status [name]`. Shows the status, endpoint, uptime and cost so far of the current
+run.
 
 ## env
 
-`thetaserve env [name] [--shell posix|fish|powershell|cmd]`. Print `OPENAI_BASE_URL` and
-`OPENAI_API_KEY` lines. Default shell: PowerShell on Windows, POSIX elsewhere.
+`thetaserve env [name] [--shell posix|fish|powershell|cmd]`. Shows `OPENAI_BASE_URL` and
+`OPENAI_API_KEY` lines. Default shell: PowerShell on Windows, POSIX on other systems.
 
 ## logs
 
-`thetaserve logs [name] [-f|--follow] [--tail N]`. vLLM container log; `--tail` 0-5000,
-default 100.
+`thetaserve logs [name] [-f|--follow] [--tail N]`. Shows the vLLM container log. `--tail`
+0-5000, default 100.
 
 ## stop / start
 
-`thetaserve stop [name]` pauses compute and keeps the disk. `thetaserve start [name]` resumes.
-Without a cache volume the weights are downloaded again on start.
+`thetaserve stop [name]` pauses compute and keeps the disk. `thetaserve start [name]` starts
+it again. Without a cache volume, `start` downloads the weights again.
 
 ## down
 
-`thetaserve down [name] [--purge] [-y|--yes]`. Delete the pod and the deployment's API key.
-`--purge` also deletes the cache volume, unless another deployment uses it.
+`thetaserve down [name] [--purge] [-y|--yes]`. Deletes the pod and the API key of the
+deployment. `--purge` also deletes the cache volume, unless a different deployment uses it.
 
 ## Exit status
 

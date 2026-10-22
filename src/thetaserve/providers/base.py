@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from thetaserve.config import Arch
-from thetaserve.profiles import LaunchSpec
+from thetaserve.spec import LaunchSpec
 from thetaserve.state import Deployment
 
 

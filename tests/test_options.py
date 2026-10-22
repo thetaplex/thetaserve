@@ -7,11 +7,11 @@ import pytest
 import respx
 from typer.testing import CliRunner
 
+from tests.conftest import QWEN_CONFIG
 from thetaserve.cli import app
 from thetaserve.config import Preset
 from thetaserve.options import (
     DECODE_EFFICIENCY,
-    HF_URL,
     ModelFacts,
     Weights,
     model_facts,
@@ -21,22 +21,10 @@ from thetaserve.options import (
     tokens_per_s,
 )
 from thetaserve.providers.base import Gpu
-from thetaserve.providers.runpod import API_URL
 
 GIB = 1024**3
 CODING = Preset(min_context=131072, tools=True, min_bits=8)
 CHAT = Preset(min_context=32768, tools=False, min_bits=4)
-QWEN_CONFIG = {
-    "architectures": ["Qwen3_5ForConditionalGeneration"],
-    "text_config": {
-        "num_hidden_layers": 64,
-        "num_attention_heads": 24,
-        "num_key_value_heads": 4,
-        "head_dim": 256,
-        "layer_types": (["linear_attention"] * 3 + ["full_attention"]) * 16,
-        "max_position_embeddings": 262144,
-    },
-}
 FACTS = ModelFacts("Qwen/Qwen3.8-27B", 262144, 65536, 0)
 WEIGHTS = [
     Weights("Qwen/Qwen3.8-27B", "bf16", 16, 51.7),
@@ -48,7 +36,7 @@ WEIGHTS = [
 
 def test_kv_counts_only_full_attention_layers() -> None:
     facts = model_facts("Qwen/Qwen3.8-27B", QWEN_CONFIG)
-    # 16 full-attention layers x 4 KV heads x head dim 256 x K,V x 2 B: DESIGN.md section 6.
+    # 16 full-attention layers x 4 KV heads x head dim 256 x K,V x 2 B: DESIGN.md section 6.2.
     assert facts.kv_bytes_per_token == 65536
     assert facts.max_context == 262144
 
@@ -152,71 +140,82 @@ def test_min_bits_drops_lower_precisions_and_fp4_needs_blackwell() -> None:
     assert suggest(FACTS, WEIGHTS[-1:], GPUS, CHAT) == []  # NVFP4 only, no Blackwell
 
 
-def test_up_without_device_lists_options_and_dry_runs_the_first(
-    user_dir: Path, monkeypatch: pytest.MonkeyPatch
+def test_up_lists_options_and_dry_runs_the_recommended_one(
+    user_dir: Path, monkeypatch: pytest.MonkeyPatch, hub: respx.MockRouter
 ) -> None:
     (user_dir / "models.yaml").write_text("vllm_image: vllm/vllm-openai:v0.32.0\n")
     monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
-    with respx.mock(assert_all_called=True) as router:
-        router.get(f"{HF_URL}/Qwen/Qwen3.8-27B/resolve/main/config.json").respond(json=QWEN_CONFIG)
-        router.get(f"{HF_URL}/api/models").respond(
-            json=[
-                {"id": "unsloth/Qwen3.8-27B-GGUF", "tags": ["gguf"], "config": {}},
-                {
-                    "id": "Qwen/Qwen3.8-27B-FP8",
-                    "tags": [],
-                    "config": {"quantization_config": {"quant_method": "fp8"}},
-                },
-            ]
-        )
-        for repo, gb in (("Qwen/Qwen3.8-27B", 51.7), ("Qwen/Qwen3.8-27B-FP8", 28.75)):
-            router.get(f"{HF_URL}/api/models/{repo}/revision/main").respond(
-                json={
-                    "sha": f"{len(repo):040x}",
-                    "siblings": [
-                        {"rfilename": "model.safetensors", "size": int(gb * GIB)},
-                        {"rfilename": "x.json"},
-                    ],
-                }
-            )
-        router.get(f"{API_URL}/v2/catalog/gpus").respond(
-            json={
-                "gpus": [
-                    {
-                        "id": "NVIDIA A40",
-                        "manufacturer": "NVIDIA",
-                        "memory": 48,
-                        "pool": "AMPERE_48",
-                        "price": {"secure": 0.59},
-                        "availability": "HIGH",
-                    },
-                    {
-                        "id": "AMD MI300X",
-                        "manufacturer": "AMD",
-                        "memory": 192,
-                        "pool": None,
-                        "price": {"secure": 2.39},
-                        "availability": "HIGH",
-                    },
-                ]
-            }
-        )
-        result = CliRunner().invoke(
-            app,
-            ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--dry-run"],
-            env={"COLUMNS": "200"},
-        )
+    result = CliRunner().invoke(
+        app,
+        ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--dry-run"],
+        env={"COLUMNS": "200"},
+    )
 
     assert result.exit_code == 0, result.output
-    assert "NVIDIA A40" in result.output
+    assert hub["gpus"].called
+    assert "NVIDIA RTX A6000" in result.output
     assert "tok/s" in result.output
     assert "MI300X" not in result.output
+    assert "sample" not in result.output
     assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
     assert f"--revision {len('Qwen/Qwen3.8-27B-FP8'):040x}" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output
     body = json.loads(result.output[result.output.index("{") :])
-    assert body["gpu"] == {"id": "NVIDIA A40", "count": 1}
-    assert body["name"] == "thetaserve-qwen3.8-27b-a40"
+    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1}
+    assert body["name"] == "thetaserve-qwen3.8-27b-rtx-a6000"
+
+
+def test_dry_run_without_key_uses_the_packaged_sample(hub: respx.MockRouter) -> None:
+    result = CliRunner().invoke(
+        app,
+        ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--dry-run"],
+        env={"COLUMNS": "200"},
+    )
+    assert result.exit_code == 0, result.output
+    assert not hub.calls  # neither Runpod nor the Hugging Face Hub
+    assert "sample GPU prices, stock and model data from 20" in result.output
+    assert "vllm serve Qwen/Qwen3.8-27B-FP8" in result.output
+    assert "--revision " in result.output
+
+
+def test_launch_without_key_fails_before_listing(hub: respx.MockRouter) -> None:
+    result = CliRunner().invoke(
+        app, ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--yes"]
+    )
+    assert result.exit_code == 1
+    assert "no Runpod API key" in result.output
+
+
+@pytest.mark.parametrize(
+    ("device", "message"),
+    [("NVIDIA H900", "unknown GPU 'NVIDIA H900'"), ("NVIDIA RTX 4090", "is sold out")],
+)
+def test_device_must_be_a_listed_gpu_in_stock(
+    monkeypatch: pytest.MonkeyPatch, hub: respx.MockRouter, device: str, message: str
+) -> None:
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
+    result = CliRunner().invoke(
+        app,
+        ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--device", device, "--dry-run"],
+        env={"COLUMNS": "200"},
+    )
+    assert result.exit_code == 1
+    assert message in result.output
+
+
+def test_device_limits_the_options_to_that_gpu(
+    monkeypatch: pytest.MonkeyPatch, hub: respx.MockRouter
+) -> None:
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
+    result = CliRunner().invoke(
+        app,
+        ["up", "--provider", "runpod", "--model", "qwen3.8-27b", "--device", "NVIDIA A40",
+         "--dry-run"],
+        env={"COLUMNS": "200"},
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    assert "RTX A6000" not in result.output
+    assert json.loads(result.output[result.output.index("{") :])["gpu"]["id"] == "NVIDIA A40"
 
 
 def test_tokens_per_s_reads_every_weight_once_4bit_as_8bit_and_slices_share_bandwidth() -> None:

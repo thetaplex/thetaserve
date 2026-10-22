@@ -25,6 +25,10 @@ fmt:
 # Everything CI runs
 check: lint test
 
+# Fetch the dry-run sample data again (needs the Runpod key and network access)
+samples:
+    uv run python -m thetaserve.samples
+
 # Run the CLI, e.g. `just run list models`
 run *args:
     uv run thetaserve {{args}}

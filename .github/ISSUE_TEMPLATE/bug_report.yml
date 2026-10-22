@@ -36,4 +36,4 @@ body:
     id: target
     attributes:
       label: Provider, device and model
-      placeholder: runpod / a6000-48g / qwen3.8-27b
+      placeholder: runpod / NVIDIA A40 / qwen3.8-27b

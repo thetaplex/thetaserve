@@ -1,4 +1,4 @@
-# Use-case presets for `up --use` (docs/adr/0001-derive-launch-options.md).
+# Use-case presets for `up --use` (docs/DESIGN.md section 5.1).
 # min_context: tokens, or null for the model's maximum. min_bits: lowest weight precision.
 # The min_bits floors are judgements, not measurements, until `bench` compares 4-bit with 8-bit.
 coding:   { min_context: 131072, tools: true,  min_bits: 8 }

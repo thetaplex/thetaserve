@@ -26,8 +26,11 @@ type Store = Literal["keyring", "file"]
 
 
 def new_api_key() -> str:
-    """A fresh per-launch key: 32 random bytes, URL-safe."""
-    return _random.token_urlsafe(32)
+    """A fresh per-launch key: 32 random bytes as hex.
+
+    Not base64url: a key that starts with "-" is read by `vllm serve` as an option.
+    """
+    return _random.token_hex(32)
 
 
 def mask(value: str) -> str:

@@ -10,35 +10,37 @@
    | `api.runpod.io/graphql` | Read/Write |
    | `api.runpod.ai` | None |
 
-   Read Only does not work: `up` creates pods. Runpod warns that GraphQL Read/Write gives full
-   account access; no narrower setting can create pods (checked 2026-10-20). Use **All** if the
-   console offers no GraphQL line.
-3. Set a spend limit on the account. It caps what a leaked key can cost.
+   Read Only is not sufficient, because `up` creates pods. Runpod warns that GraphQL Read/Write
+   gives full account access. No narrower setting can create pods (checked 2026-10-20). If the
+   console shows no GraphQL line, select **All**.
+3. Set a spend limit on the account. The limit sets the maximum cost of a leaked key.
 
 ## Store it
 
-In a real terminal (not an agent shell or `!` prompt, which cannot hide input):
+Use a real terminal. An agent shell or a `!` prompt cannot hide input.
 
 ```sh
-uv run thetaserve setup
+thetaserve setup
 ```
 
-Paste the key; nothing is shown as you type. Optionally paste a Hugging Face token at the second
-prompt, or press Enter to skip. Run `setup` again and press Enter to keep a stored value.
+Paste the key. The terminal does not show what you type. At the second prompt, paste a Hugging
+Face token, or press Enter to skip it. To keep a stored value when you run `setup` again, press
+Enter.
 
-`setup` reports where each secret went: the system keyring, or, where no keyring backend exists
-(headless Linux, containers), a mode-600 `secrets.json` in the user config directory.
+`setup` shows where it stored each secret. This is the system keyring or, when no keyring
+backend is available (headless Linux, containers), a mode-600 `secrets.json` in the user config
+directory.
 
 ## Use environment variables instead
 
-For CI or a one-off shell, skip `setup`:
+For CI or a single shell, do not use `setup`. Set the variables:
 
 ```sh
 export RUNPOD_API_KEY=...
 export HF_TOKEN=...        # optional
 ```
 
-Environment variables take precedence over stored secrets.
+Environment variables have priority over stored secrets.
 
 ## Revoke
 

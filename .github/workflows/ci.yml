@@ -34,5 +34,6 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: just setup
       - run: just check
+      # Keyless dry run, as in the README quickstart; runs offline from catalog/samples.json.
       - name: Dry run smoke test
-        run: just run up --provider runpod --device a6000-48g --model qwen3.8-27b --port 8000 --dry-run
+        run: just run up --provider runpod --model qwen3.8-27b --dry-run

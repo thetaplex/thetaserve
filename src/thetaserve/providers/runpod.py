@@ -11,8 +11,8 @@ from urllib.parse import quote
 import httpx
 
 from thetaserve.config import Arch, RunPodConfig
-from thetaserve.profiles import LaunchSpec
 from thetaserve.providers.base import Endpoint, Gpu, ProviderError
+from thetaserve.spec import LaunchSpec
 from thetaserve.state import Deployment
 
 API_URL = "https://api.runpod.io"
@@ -137,19 +137,20 @@ class RunPod:
 
     def gpus(self) -> list[Gpu]:
         """NVIDIA GPU types offered for one-GPU pods, with this cloud's price and stock."""
-        listing = self._request(
+        return parse_gpus(self.gpu_listing(), self.cfg.cloud_type)
+
+    def gpu_listing(self) -> dict[str, Any]:
+        """The raw GPU catalogue for this cloud."""
+        listing: dict[str, Any] = self._request(
             "GET",
             "/v2/catalog/gpus",
             params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
         ).json()
-        found = []
-        for g in listing["gpus"]:
-            price = (g.get("price") or {}).get(self.cfg.cloud_type.lower())
-            arch = _arch(g)
-            if g.get("manufacturer") == "NVIDIA" and price and arch and g.get("memory"):
-                stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
-                found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
-        return found
+        return listing
+
+    @property
+    def has_key(self) -> bool:
+        return bool(self._api_key) or self._client is not None
 
     def price_per_hour(self, spec: LaunchSpec) -> float | None:
         gpu = self._request("GET", f"/v2/catalog/gpus/{quote(_gpu_id(spec), safe='')}").json()
@@ -169,10 +170,9 @@ class RunPod:
         body = {
             "name": f"thetaserve-{spec.name}",
             "image": spec.image,
-            # A shell so "$VLLM_API_KEY" in the command expands from the pod's environment;
-            # exec makes vLLM the process that receives stop signals.
+            # A shell so "$VLLM_API_KEY" in the command expands from the pod's environment.
             "entrypoint": ["/bin/bash", "-c"],
-            "cmd": [f"exec {spec.command()}"],
+            "cmd": [spec.script()],
             "env": env,
             "ports": [f"{spec.port}/http"],
             "disk": self.cfg.container_disk_gb,
@@ -193,12 +193,12 @@ class RunPod:
             if stock.get(v["dataCenter"], 0) > 0:
                 return v["id"], v["dataCenter"]
         if volumes:
-            # ponytail: no automatic second volume; DESIGN.md 8.1 says offer one in another
-            # data centre (and try fallback devices). Add when users hit it.
+            # ponytail: no automatic second volume; DESIGN.md 8.1 plans to offer one in
+            # another data centre. Add when users hit it.
             where = ", ".join(sorted(v["dataCenter"] for v in volumes))
             raise ProviderError(
                 f"{gpu_id} is sold out where your {self.cfg.network_volume!r} volume lives "
-                f"({where}). Try another --device, or try again later."
+                f"({where}). Choose another option, or try again later."
             )
         if not stock or max(stock.values()) == 0:
             raise ProviderError(f"{gpu_id} has no {self.cfg.cloud_type} capacity right now")
@@ -281,10 +281,21 @@ def _arch(gpu: dict[str, Any]) -> Arch | None:
     return _POOL_ARCH.get(str(gpu.get("pool")).split("_")[0])
 
 
+def parse_gpus(listing: dict[str, Any], cloud_type: str) -> list[Gpu]:
+    found = []
+    for g in listing["gpus"]:
+        price = (g.get("price") or {}).get(cloud_type.lower())
+        arch = _arch(g)
+        if g.get("manufacturer") == "NVIDIA" and price and arch and g.get("memory"):
+            stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
+            found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
+    return found
+
+
 def _gpu_id(spec: LaunchSpec) -> str:
     gpu_id = spec.sku.get("gpu_type_id")
     if not gpu_id:
-        raise ProviderError(f"device {spec.device!r} has no runpod.gpu_type_id in devices.yaml")
+        raise ProviderError(f"launch spec {spec.name!r} has no Runpod GPU ID")
     return gpu_id
 
 
