@@ -17,6 +17,6 @@ def get_provider(name: str, catalog: Catalog) -> Provider:
             cfg = catalog.providers.runpod
             return RunPod(cfg, secrets.get(RUNPOD_SECRET, env=cfg.api_key_env))
         case "aws":
-            raise ProviderError("the AWS adapter arrives in milestone M5")
+            raise ProviderError("the AWS adapter comes after v0.1; use --provider runpod")
         case _:
             raise ProviderError(f"unknown provider {name!r}")

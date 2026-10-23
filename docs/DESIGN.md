@@ -16,8 +16,8 @@ You name a **model** and a **use case**. thetaserve reads the model's metadata f
 Face and the GPU prices and stock from the **provider**. It then shows the launch **options**
 that fit, and you select one. `--device` limits the options to one GPU.
 
-Initial models: Qwen3.8-27B and Gemma 4 31B (both dense, Apache 2.0). Initial providers:
-Runpod (core) and AWS (extra). Engine: vLLM only.
+Initial models: Qwen3.8-27B and Gemma 4 31B (both dense, Apache 2.0). Initial provider:
+Runpod (core). AWS (extra) comes after v0.1 (section 12). Engine: vLLM only.
 
 Non-goals for v0.1:
 - Multi-user production serving, autoscaling or load balancing.
@@ -45,7 +45,7 @@ Non-goals for v0.1:
 
 ```
 uv tool install thetaserve              # core + Runpod
-uv tool install "thetaserve[aws]"       # + AWS (boto3)
+uv tool install "thetaserve[aws]"       # + AWS (boto3), after v0.1
 ```
 
 `pip install thetaserve` also works. Entry point: `thetaserve = "thetaserve.cli:app"`.
@@ -100,7 +100,7 @@ flowchart LR
 | Options (`options.py`) | Read model facts and weight variants from Hugging Face. Find the cheapest GPU in stock for each precision. Select the recommended option (section 6.1) |
 | Spec (`spec.py`) | `LaunchSpec` (image, vLLM args, env, port, disk), memory estimate and the `vllm serve` command |
 | Providers (`providers/`) | `base.py` protocol and dataclasses, `runpod.py`, `aws.py` |
-| Host files | `guard.py` (key middleware) and `watchdog.py` (idle and lifetime stop), standard library only. `LaunchSpec.script()` writes both to the host, starts the watchdog and execs vLLM. `aws_user_data.sh` template (M5) |
+| Host files | `guard.py` (key middleware) and `watchdog.py` (idle and lifetime stop), standard library only. `LaunchSpec.script()` writes both to the host, starts the watchdog and execs vLLM. `aws_user_data.sh` template (M6, AWS) |
 | Health (`health.py`) | Poll `/v1/models`. Read the KV-cache size that vLLM logs at start-up. Report the real maximum context |
 | State (`state.py`) | `state.json` in `platformdirs.user_state_dir("thetaserve")` (mode 600 on POSIX): deployments, endpoints, start time, rate. No secrets |
 | Secrets (`secrets.py`) | Make a new vLLM key for each launch. Lookup order, first hit wins: (1) environment variable (`RUNPOD_API_KEY`, `HF_TOKEN`, ...); (2) keyring, only if a real backend is available (the `fail` and `null` backends count as unavailable); (3) `secrets.json` in the user config directory, mode 600 on POSIX, with a one-time warning that it is plaintext. Writes go to keyring when available, else to the file |
@@ -480,15 +480,15 @@ thetaserve/
   pyproject.toml  uv.lock  justfile  README.md  LICENSE  CHANGELOG.md  CLAUDE.md
   src/thetaserve/
     __init__.py  cli.py  config.py  options.py  spec.py  state.py  secrets.py  health.py
-    providers/  base.py  runpod.py  aws.py (M5)
+    providers/  base.py  runpod.py  aws.py (M6)
     guard.py  watchdog.py      (written to the host by the launch script)
-    remote/     aws_user_data.sh   (M5)
+    remote/     aws_user_data.sh   (M6)
     catalog/    presets.yaml  bandwidth.yaml  models.yaml  providers.yaml  publishers.yaml
                 samples.json
   results/      (M4)
   tests/        test_config.py  test_options.py  test_spec.py  test_runpod.py  test_cli_lifecycle.py ...
   docs/         DESIGN.md  tutorials/  how-to/  reference/  explanation/
-  .github/workflows/  ci.yml  release.yml (M6)
+  .github/workflows/  ci.yml  release.yml (M5)
 ```
 
 ## 12. Build order
@@ -500,8 +500,11 @@ thetaserve/
 | M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
 | M3 (done 2026-10-23) | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
 | M4 (harness done; runs pending) | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
-| M5 | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
-| M6 | v0.1 release on PyPI (target 2026-12-07) | `uv tool install thetaserve` works on a clean machine |
+| M5 | v0.1 release on PyPI, Runpod only (target 2026-12-07) | `uv tool install thetaserve` works on a clean machine |
+| M6 (after v0.1) | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
+
+AWS moved after v0.1 on 2026-10-23: the AWS account has no GPU quota yet (request
+rejected), and an adapter that cannot be run on real hardware is not released.
 
 ## 13. Open questions (resolve in M1/M2)
 
@@ -749,4 +752,4 @@ Consequences:
 - One launch path. Every launch, including `--device`, has a commit pin.
 - A dry run for a built-in model works offline, and CI runs it without network calls.
 - The snapshot goes stale. The dry run shows its date, and launches never use it.
-- The AWS GPU-to-instance-type map moves to `providers.yaml` in M5 (section 8.2).
+- The AWS GPU-to-instance-type map moves to `providers.yaml` in the AWS milestone (section 8.2).
