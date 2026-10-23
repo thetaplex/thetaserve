@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import replace
@@ -12,12 +13,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn
 
+import httpx
 import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from thetaserve import __version__, health, options, samples, secrets, state
+from thetaserve import __version__, bench, health, options, samples, secrets, state
 from thetaserve._files import write_private
 from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
 from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
@@ -287,6 +289,7 @@ def _pick(
     name: str | None,
     choose: bool,
     dry_run: bool,
+    bits: int | None = None,
 ) -> LaunchSpec:
     """Show the cheapest options for `model` and return the chosen one as a LaunchSpec.
 
@@ -315,6 +318,8 @@ def _pick(
             None if any_publisher else catalog.publishers,
         )
         facts = replace(facts, kv_bytes_per_token=round(facts.kv_bytes_per_token * kv_scale))
+        if bits is not None:
+            weights = [w for w in weights if w.bits == bits]
         gpus = samples.gpus(sample, adapter.cfg.cloud_type) if sample else adapter.gpus()
         if device is not None:
             gpus = _on_device(gpus, device)
@@ -419,7 +424,8 @@ def _on_device(gpus: list[Gpu], device: str) -> list[Gpu]:
     return on
 
 
-def _launch(spec: LaunchSpec, adapter: Provider) -> None:
+def _launch(spec: LaunchSpec, adapter: Provider) -> tuple[Deployment, str]:
+    """Create the host and wait until vLLM answers; returns the deployment and its API key."""
     if "TODO" in spec.image:
         _fail(
             f"the vLLM image is not pinned ({spec.image}). Set vllm_image to a tag in "
@@ -494,6 +500,172 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> None:
             f"KV cache holds {kv_tokens:,} tokens (configured context {spec.max_model_len:,})."
         )
     out.print(f"API key {secrets.mask(api_key)}. For export lines: thetaserve env {d.name}")
+    return d, api_key
+
+
+@app.command("bench")
+def bench_(
+    provider: Annotated[str, typer.Option(help="Provider, e.g. runpod.")],
+    model: Annotated[str, typer.Option(help="Catalogue model or Hugging Face repo.")],
+    device: Annotated[str, typer.Option(help="Provider GPU ID such as 'NVIDIA A40'.")],
+    use: Annotated[str, typer.Option(help="Use case that sets the context.")] = "coding",
+    precision: Annotated[
+        Precision | None, typer.Option(help="Weight precision; default the recommended one.")
+    ] = None,
+    context: Annotated[int | None, typer.Option(min=1, help="Context length in tokens.")] = None,
+    kv_cache_dtype: Annotated[KvDtype | None, typer.Option(help="KV-cache dtype.")] = None,
+    out_dir: Annotated[Path, typer.Option("--out", help="Results directory.")] = Path("results"),
+    warm: Annotated[bool, typer.Option(help="Also stop, restart and time the warm start.")] = True,
+    keep: Annotated[bool, typer.Option("--keep", help="Keep the deployment afterwards.")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask before launching.")] = False,
+) -> None:
+    """Launch the recommended option on one GPU, run the fixed workload, write one JSON result,
+    then remove the deployment (DESIGN.md section 10)."""
+    catalog = _catalog()
+    with _errors():
+        spec = _pick(
+            catalog,
+            get_provider(provider, catalog),
+            provider=provider,
+            model=model,
+            device=device,
+            use=use,
+            min_bits=None,
+            bits=int(precision.value.removesuffix("bit")) if precision else None,
+            context=context,
+            kv_cache_dtype=kv_cache_dtype.value if kv_cache_dtype else None,
+            any_publisher=False,
+            extra_args=[],
+            port=8000,
+            idle_s=30 * 60,
+            max_life_s=3 * 3600,  # a stuck run stops itself
+            name=None,
+            choose=False,
+            dry_run=False,
+        )
+        spec = spec.model_copy(update={"name": f"bench-{spec.name}-{spec.weights}"})
+        # A volume of its own, where the GPU is in stock, removed afterwards: the warm restart
+        # reads the weights from it, and runs can go in parallel on any GPUs.
+        runpod = catalog.providers.runpod.model_copy(update={"network_volume": spec.name})
+        catalog = catalog.model_copy(
+            update={"providers": catalog.providers.model_copy(update={"runpod": runpod})}
+        )
+        adapter = get_provider(provider, catalog)
+    _confirm(f"Benchmark option 1 ({spec.repo} on {spec.device}), billed until done?", yes)
+    started = datetime.now(UTC)
+    try:
+        with _errors():
+            t0 = time.monotonic()
+            d, api_key = _launch(spec, adapter)
+            result = _bench_run(d, api_key, adapter, catalog, time.monotonic() - t0, warm)
+    finally:
+        if not keep and spec.name in state.load().deployments:
+            d = state.load().deployments[spec.name]
+            with _errors():
+                adapter.destroy(d, purge=True)
+                state.remove(d.name)
+                secrets.delete(d.secret_name)
+            out.print(f"Destroyed {d.name}.")
+    path = bench.result_path(out_dir, spec, provider, started.date().isoformat())
+    bench.write(path, {"started": started.isoformat(timespec="seconds"), **result})
+    _print_bench(result)
+    out.print(f"Wrote {path}")
+
+
+def _bench_run(
+    d: Deployment, api_key: str, adapter: Provider, catalog: Catalog, first_s: float, warm: bool
+) -> dict[str, object]:
+    spec, base_url = d.spec, d.base_url or ""
+    args = spec.vllm_args
+    cloud = catalog.providers.runpod.cloud_type
+    measured = bench.parse_startup(adapter.logs(d, follow=False, tail=2000))
+    timeout = httpx.Timeout(30.0, read=300.0)
+    auth = {"Authorization": f"Bearer {api_key}"}
+    with httpx.Client(headers=auth, timeout=timeout) as http, out.status("Benchmark…") as status:
+        version = http.get(f"{base_url.removesuffix('/v1')}/version").json().get("version")
+        status.update("Benchmark: time to first token…")
+        ttft = bench.time_to_first_token(http, base_url, spec.repo, spec.max_model_len)
+        status.update("Benchmark: decode at 1 and 4 requests…")
+        decode = [bench.decode(http, base_url, spec.repo, n) for n in (1, 4)]
+        status.update("Benchmark: tool calls…")
+        tools = bench.tool_calls(http, base_url, spec.repo)
+    warm_result = _bench_warm(d, api_key, adapter) if warm else None
+    return {
+        "schema_version": 1,
+        "thetaserve_version": __version__,
+        "config_hash": bench.config_hash(spec, cloud),
+        "provider": d.provider,
+        "cloud_type": cloud,
+        "device": spec.device,
+        "vram_gb": round(spec.fit.budget_gb / spec.gpu_memory_utilization, 1),
+        "data_center": d.extra.get("data_center"),
+        "cost_per_hr": d.cost_per_hr,
+        "model": spec.model,
+        "repo": spec.repo,
+        "revision": args[args.index("--revision") + 1] if "--revision" in args else "main",
+        "weights": spec.weights,
+        "context": spec.max_model_len,
+        "kv_cache_dtype": spec.kv_cache_dtype,
+        "image": spec.image,
+        "image_digest": bench.image_digest(spec.image),
+        "vllm_version": version,
+        "vllm_args": args,
+        "estimate": {**spec.fit.model_dump(), "kv_scale": _model_source(catalog, spec.model)[2]},
+        "measured": measured,
+        "time_to_ready_s": {"first": round(first_s, 1), "warm": warm_result},
+        "ttft": ttft,
+        "decode": decode,
+        "cost_per_million_output_tokens": {
+            f"concurrency_{r['concurrency']}": bench.cost_per_million(d.cost_per_hr, r["total_tps"])
+            for r in decode
+        },
+        "tool_calls": tools,
+    }
+
+
+def _bench_warm(d: Deployment, api_key: str, adapter: Provider) -> dict[str, object]:
+    """Stop the pod, start it again and time it until vLLM answers."""
+    try:
+        with out.status("Benchmark: warm restart…"):
+            d = adapter.stop(d)
+            deadline = time.monotonic() + RUNNING_TIMEOUT_S
+            while d.status != "EXITED" and time.monotonic() < deadline:
+                time.sleep(5)
+                d = adapter.refresh(d)
+            t0 = time.monotonic()
+            d = adapter.wait_running(adapter.start(d), RUNNING_TIMEOUT_S)
+            state.put(d)
+            health.wait_ready(d.base_url or "", api_key, READY_TIMEOUT_S)
+            ready_s = time.monotonic() - t0
+        return {
+            "ready_s": round(ready_s, 1),
+            **bench.parse_startup(adapter.logs(d, follow=False, tail=2000)),
+        }
+    except (ProviderError, health.NotReady) as exc:
+        return {"error": str(exc)}
+
+
+def _print_bench(r: dict[str, object]) -> None:
+    table = Table.grid(padding=(0, 2))
+    decode = {d["concurrency"]: d for d in r["decode"]}  # type: ignore[attr-defined]
+    for label, value in [
+        ("run", f"{r['repo']} on {r['device']}, ${r['cost_per_hr']}/h"),
+        ("decode", " / ".join(f"{n} req: {_num(d['per_request_tps'])} tok/s each, "
+                              f"{_num(d['total_tps'])} total" for n, d in decode.items())),
+        ("ttft", ", ".join(f"{t['target_tokens'] // 1024}K: {_num(t['ttft_s'], 's')}"
+                           for t in r["ttft"])),  # type: ignore[attr-defined]
+        ("$/M out", ", ".join(f"{k.split('_')[1]} req: {_num(v, '', '$')}"
+                              for k, v in r["cost_per_million_output_tokens"].items())),  # type: ignore[attr-defined]
+        ("tool calls", f"{r['tool_calls']['passed']}/{r['tool_calls']['total']}"),  # type: ignore[index]
+        ("ready", f"first {r['time_to_ready_s']['first']} s, warm "  # type: ignore[index]
+                  f"{(r['time_to_ready_s']['warm'] or {}).get('ready_s', '-')} s"),  # type: ignore[index]
+    ]:  # fmt: skip
+        table.add_row(label, escape(str(value)))
+    out.print(table)
+
+
+def _num(value: object, unit: str = "", prefix: str = "") -> str:
+    return f"{prefix}{value:.1f}{unit}" if isinstance(value, float | int) else "-"
 
 
 def save_log(name: str, lines: list[str], api_key: str) -> Path:

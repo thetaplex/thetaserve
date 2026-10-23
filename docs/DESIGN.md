@@ -1,6 +1,6 @@
 # thetaserve: design brief v0.3
 
-Status: in build (M3 done 2026-10-23; next M4). Date: 2026-10-22. This version merges the
+Status: in build (M3 done 2026-10-23; M4 in progress). Date: 2026-10-22. This version merges the
 decision records of 2026-10-20 to 2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
 (PDF, not kept in the repository).
 
@@ -438,20 +438,40 @@ internet.
 
 ## 10. Benchmark harness (`thetaserve bench`)
 
-`bench` launches a pinned configuration, runs a fixed workload on the endpoint and writes one
-JSON result. Then it removes the deployment, unless `--keep`.
+`bench --device` launches the recommended option on that GPU (section 6.1), or with
+`--precision` the first option at exactly that weight precision. It runs a fixed
+workload on the endpoint and writes one JSON result. Then it removes the deployment, unless
+`--keep`. It removes the deployment also when the run fails.
 
-It measures:
-- tokens per second at 1 and 4 concurrent requests;
-- time to first token at 8K, 32K and 128K prompt lengths (not more than the context);
-- real KV-cache capacity from vLLM's start-up log, next to the estimate (section 6.1);
-- time to ready, cold and warm;
-- $/h and $ per million output tokens;
-- a small fixed coding-quality check, to compare 4-bit with 8-bit (section 5.1).
+It measures, timed on the caller's machine (proxy latency included):
+- tokens per second at 1 and 4 concurrent requests, 256 output tokens each (`ignore_eos`),
+  3 rounds, median: per request and in total;
+- time to first token at 8K, 32K and 128K prompt lengths (not more than the context). Each prompt
+  starts with a new random prefix, so the prefix cache does not hide the prefill;
+- memory from vLLM's start-up log (weights, peak activation, CUDA graphs, KV cache size and
+  tokens), next to the estimate (section 6.1) and `kv_scale`;
+- time to ready: the first start (weight download time from the log shows if the cache volume
+  had the weights) and a warm restart (`stop`, `start`, ready; `--no-warm` skips it);
+- $/h and $ per million output tokens at 1 and 4 requests;
+- tool-call reliability: 10 fixed prompts against 5 coding-agent tools, 5 times each at
+  temperature 0.7 (50 calls), passed when the call has the exact function and arguments. It compares 4-bit with 8-bit (section 5.1).
 
-Result file: `results/<model>/<device>-<provider>-<date>.json`, with the configuration hash,
-vLLM version, image digest, hardware and all metrics. Commit the results, so that anyone can
-reproduce and compare them.
+Tool calls replace the planned coding-quality check. Malformed tool calls are the known failure
+of 4-bit weights for agents (section 5.1), and a code check would run model output on the
+caller's machine.
+
+Result file: `results/<model>/<device>-<weights>-<provider>-<date>.json`. It records the configuration
+hash (image, repository, vLLM arguments, GPU, cloud type), thetaserve and vLLM versions, image
+digest, cloud type, data centre, price and all metrics. A second run of the same model and GPU on
+the same day replaces the file. Commit the results, so that anyone can reproduce and compare
+them.
+
+Each run uses a cache volume of its own (named like the deployment, `bench-<model>-<GPU>-<weights>`), in the data centre with the most
+stock of the GPU, whatever `network_volume` says. `bench` deletes it with the pod. Thus the warm
+restart reads the weights from a volume, and runs can go in parallel on any GPUs.
+
+The M4 runs and metrics: [benchmark plan](reference/benchmark-plan.md). They use Runpod Secure Cloud, the default `cloud_type`, so that the results show what a
+user gets by default.
 
 ## 11. Repository layout
 
@@ -479,7 +499,7 @@ thetaserve/
 | M1 (done 2026-10-22) | Runpod adapter, secrets, state, health, `up/status/env/logs/stop/down`; options from live data (D1, D2, D4); pinned revision (D3) | Qwen3.8-27B runs on a Runpod 48 GB GPU and a coding agent connects |
 | M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
 | M3 (done 2026-10-23) | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
-| M4 | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
+| M4 (harness done; runs pending) | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
 | M5 | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
 | M6 | v0.1 release on PyPI (target 2026-12-07) | `uv tool install thetaserve` works on a clean machine |
 

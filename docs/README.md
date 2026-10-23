@@ -12,6 +12,7 @@ ISO 8601; memory sizes are GiB (IEC 80000-13) unless a provider quotes GB.
 | How-to | [Connect a client or coding agent](how-to/connect-a-client.md) | A deployment is ready |
 | Reference | [CLI](reference/cli.md) | Looking up a command or option |
 | Reference | [Configuration and files](reference/configuration.md) | Looking up a catalogue field, a path or the secrets lookup order |
+| Reference | [M4 benchmark plan](reference/benchmark-plan.md) | Looking up which runs M4 makes and what each measures |
 | Explanation | [The weights cache](explanation/weights-cache.md) | Deciding whether to keep a cache volume |
 | Explanation | [How launch settings are chosen](explanation/launch-settings.md) | You want to know why `up` shows these options |
 

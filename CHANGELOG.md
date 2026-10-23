@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Runpod pods stop themselves after `--idle` (default 30 min) without requests or after `--max-life` (default 10 h): a watchdog on the host reads vLLM's `/metrics` and stops the pod with the key Runpod gives every pod.
 - With a cache volume, vLLM's compile cache is kept on it too (`VLLM_CACHE_ROOT`), so a warm start skips most compilation.
+- `thetaserve bench`: launches the recommended option on one GPU, measures decode speed at 1 and 4 requests, time to first token at 8K-128K, start-up memory against the estimate, first and warm time to ready, cost per million output tokens and tool-call reliability, writes one JSON result and removes the deployment.
 - `up` keeps a crashed server's log, key masked, in the state directory's `logs/`.
 - `up` stops waiting and reports the error when the vLLM log shows a crash, instead of waiting 40 minutes.
 - The built-in vLLM image is `vllm/vllm-openai:v0.32.0`, and Qwen3.8-27B launches with `--max-num-seqs 32`, as run in the M1 pilot on an A40 (`docs/DESIGN.md` section 13.1).

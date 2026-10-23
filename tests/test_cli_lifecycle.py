@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
 from typer.testing import CliRunner
@@ -139,3 +140,76 @@ def test_crash_log_is_kept_with_the_key_masked(user_dir: Path) -> None:
     saved = save_log("dev", ["args: api_key=k3y\n", "ValueError: no room"], "k3y")
     assert saved.read_text() == "args: api_key=****\nValueError: no room\n"
     assert saved.parent == state.state_dir() / "logs"
+
+
+def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
+    mocked_runpod: respx.MockRouter, tmp_path: Path
+) -> None:
+    def chat(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content).get("stream"):
+            chunks = [
+                {"choices": [{"delta": {"content": "1"}}]},
+                {"choices": [], "usage": {"prompt_tokens": 9, "completion_tokens": 256}},
+            ]
+            text = "".join(f"data: {json.dumps(c)}\n\n" for c in chunks) + "data: [DONE]\n\n"
+            return httpx.Response(200, text=text, headers={"Content-Type": "text/event-stream"})
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": []}}]})
+
+    mocked_runpod.post(f"{PROXY}/chat/completions").mock(side_effect=chat)
+    mocked_runpod.get(f"{API_URL}/v2/network-volumes").respond(
+        json={
+            "networkVolumes": [
+                {
+                    "id": "vol2",
+                    "name": "bench-qwen3.8-27b-rtx-a6000-fp8",
+                    "dataCenter": "US-TX-3",
+                    "size": 100,
+                }
+            ],
+            "pagination": {"nextCursor": None, "hasNextPage": False},
+        }
+    )
+    mocked_runpod.delete(f"{API_URL}/v2/network-volumes/vol2", name="delete_volume").respond(204)
+    mocked_runpod.get("https://pod1-8000.proxy.runpod.net/version").respond(
+        json={"version": "0.32.0"}
+    )
+    mocked_runpod.get(
+        "https://hub.docker.com/v2/repositories/vllm/vllm-openai/tags/v0.32.0"
+    ).respond(json={"digest": "sha256:abc"})
+
+    result = runner.invoke(
+        app,
+        ["bench", "--provider", "runpod", "--model", "qwen3.8-27b",
+         "--device", "NVIDIA RTX A6000", "--out", str(tmp_path), "--yes"],
+        env={"COLUMNS": "200"},
+    )  # fmt: skip
+    assert result.exit_code == 0, result.output
+    assert mocked_runpod["delete"].called
+    assert mocked_runpod["delete_volume"].called  # the bench volume goes with the pod
+    assert state.load().deployments == {}
+    path = next(tmp_path.glob("qwen3.8-27b/nvidia-rtx-a6000-fp8-runpod-*.json"))
+    r = json.loads(path.read_text())
+    assert r["vllm_version"] == "0.32.0"
+    assert r["image_digest"] == "sha256:abc"
+    assert r["measured"]["kv_cache_tokens"] == 150000
+    assert [t["target_tokens"] for t in r["ttft"]] == [8192, 32768, 131072]
+    assert [d["concurrency"] for d in r["decode"]] == [1, 4]
+    assert r["tool_calls"]["passed"] == 0
+    assert r["weights"] == "fp8"
+    assert r["time_to_ready_s"]["warm"]["ready_s"] >= 0
+    assert "rp-key" not in path.read_text()
+
+
+def test_bench_precision_pins_the_weight_precision(
+    mocked_runpod: respx.MockRouter, tmp_path: Path
+) -> None:
+    result = runner.invoke(
+        app,
+        ["bench", "--provider", "runpod", "--model", "qwen3.8-27b", "--device", "NVIDIA RTX A6000",
+         "--precision", "16bit", "--out", str(tmp_path)],
+        input="n\n",
+        env={"COLUMNS": "200"},
+    )  # fmt: skip
+    assert "Qwen/Qwen3.8-27B on" not in result.output  # BF16 does not fit 48 GB: no option
+    assert "no GPU in stock fits" in result.output
+    assert not mocked_runpod["create"].called
