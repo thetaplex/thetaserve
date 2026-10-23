@@ -500,8 +500,11 @@ thetaserve/
 | M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
 | M3 (done 2026-10-23) | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
 | M4 (harness done; runs pending) | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
-| M5 | v0.1 release on PyPI, Runpod only (target 2026-12-07) | `uv tool install thetaserve` works on a clean machine |
+| M5 (moved ahead of M4 on 2026-10-23) | v0.1.0 beta release on PyPI, Runpod only | `uv tool install thetaserve` works on a clean machine |
 | M6 (after v0.1) | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
+
+M5 moved ahead of M4 on 2026-10-23: launch, watchdog and teardown on Runpod already work
+(M1-M3), so v0.1.0 ships as a beta and the `bench` results follow in a later release.
 
 AWS moved after v0.1 on 2026-10-23: the AWS account has no GPU quota yet (request
 rejected), and an adapter that cannot be run on real hardware is not released.

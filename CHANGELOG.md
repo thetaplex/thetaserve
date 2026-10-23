@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-23
+
+First beta release, Runpod only.
+
 ### Added
 
 - Built-in presets, models and providers, overridable from the user config directory.
@@ -31,9 +35,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `up` keeps a crashed server's log, key masked, in the state directory's `logs/`.
 - `up` stops waiting and reports the error when the vLLM log shows a crash, instead of waiting 40 minutes.
 - The built-in vLLM image is `vllm/vllm-openai:v0.32.0`, and Qwen3.8-27B launches with `--max-num-seqs 32`, as run in the M1 pilot on an A40 (`docs/DESIGN.md` section 13.1).
-- Install with `uv tool install git+https://github.com/thetaplex/thetaserve`.
+- Install from PyPI with `uv tool install thetaserve`; tagged releases publish through PyPI trusted publishing.
 - Launched servers require the API key on every path except `/health`, including `/metrics`, which vLLM's `--api-key` leaves open.
 
 ### Changed
 
 - The memory overhead in the fit check is 3.2 GiB, measured, instead of an estimated 2 GiB.
+
+[Unreleased]: https://github.com/thetaplex/thetaserve/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/thetaplex/thetaserve/releases/tag/v0.1.0
