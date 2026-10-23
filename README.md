@@ -1,12 +1,12 @@
 # thetaserve
 
 [![CI](https://github.com/thetaplex/thetaserve/actions/workflows/ci.yml/badge.svg)](https://github.com/thetaplex/thetaserve/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](pyproject.toml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/thetaplex/thetaserve/blob/main/LICENSE)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://github.com/thetaplex/thetaserve/blob/main/pyproject.toml)
 
 One command to launch an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU and get back a secured, OpenAI-compatible endpoint.
 
-> **Status: pre-alpha.** Launch on Runpod works (milestone M1). On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. Pods stop themselves when idle (`--idle`, default 30 min) or after `--max-life` (default 10 h). See the [build order](docs/DESIGN.md#12-build-order).
+> **Status: beta.** Runpod only. On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. Pods stop themselves when idle (`--idle`, default 30 min) or after `--max-life` (default 10 h). See the [build order](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md#12-build-order).
 
 ## Why
 
@@ -14,12 +14,10 @@ Strong open models such as Qwen3.8-27B and Gemma 4 31B run well on one 24-80 GB 
 
 ## Install
 
-Prerequisite: [uv](https://docs.astral.sh/uv/getting-started/installation/). To contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-There is no PyPI release yet. Install from GitHub:
+Prerequisite: [uv](https://docs.astral.sh/uv/getting-started/installation/). To contribute, see [CONTRIBUTING.md](https://github.com/thetaplex/thetaserve/blob/main/CONTRIBUTING.md).
 
 ```sh
-uv tool install git+https://github.com/thetaplex/thetaserve
+uv tool install thetaserve
 ```
 
 ## Quickstart
@@ -49,18 +47,18 @@ On Windows, `thetaserve env` prints PowerShell syntax; run `thetaserve env | Inv
 
 thetaserve reads secrets from `RUNPOD_API_KEY` and `HF_TOKEN` first, then from the system keyring. When no keyring is available (headless Linux, containers), `setup` stores them in a mode-600 file and tells you.
 
-`up` options: `--use` sets the use case (`coding`, `chat`, `research`). `--context` sets the context length. `--kv-cache-dtype` sets the KV-cache precision. `--extra-arg` (repeatable) gives extra flags to vLLM. `--device "NVIDIA A40"` shows only the options on that GPU. See the [CLI reference](docs/reference/cli.md).
+`up` options: `--use` sets the use case (`coding`, `chat`, `research`). `--context` sets the context length. `--kv-cache-dtype` sets the KV-cache precision. `--extra-arg` (repeatable) gives extra flags to vLLM. `--device "NVIDIA A40"` shows only the options on that GPU. See the [CLI reference](https://github.com/thetaplex/thetaserve/blob/main/docs/reference/cli.md).
 
-To add or change presets, models or providers, put a YAML file with the same name in your user config directory (on Linux `~/.config/thetaserve/`). Its entries replace built-in entries with the same key. See [Override the catalogue](docs/how-to/override-catalogue.md).
+To add or change presets, models or providers, put a YAML file with the same name in your user config directory (on Linux `~/.config/thetaserve/`). Its entries replace built-in entries with the same key. See [Override the catalogue](https://github.com/thetaplex/thetaserve/blob/main/docs/how-to/override-catalogue.md).
 
 ## Links
 
-- [Documentation](docs/README.md): tutorial, how-to guides, reference, explanation
-- [Design and decision log](docs/DESIGN.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
-- [Security policy](SECURITY.md)
+- [Documentation](https://github.com/thetaplex/thetaserve/blob/main/docs/README.md): tutorial, how-to guides, reference, explanation
+- [Design and decision log](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md)
+- [Contributing](https://github.com/thetaplex/thetaserve/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/thetaplex/thetaserve/blob/main/CHANGELOG.md)
+- [Security policy](https://github.com/thetaplex/thetaserve/blob/main/SECURITY.md)
 
 ## License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/thetaplex/thetaserve/blob/main/LICENSE)

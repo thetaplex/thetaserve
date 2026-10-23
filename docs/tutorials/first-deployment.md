@@ -16,7 +16,7 @@ hour.
 ## 1. Install
 
 ```sh
-uv tool install git+https://github.com/thetaplex/thetaserve
+uv tool install thetaserve
 ```
 
 ## 2. Store your Runpod key
