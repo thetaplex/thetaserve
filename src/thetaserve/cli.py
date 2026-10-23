@@ -1,6 +1,7 @@
 """Command-line interface."""
 
 import json
+import math
 import os
 import re
 import sys
@@ -515,7 +516,6 @@ def bench_(
     context: Annotated[int | None, typer.Option(min=1, help="Context length in tokens.")] = None,
     kv_cache_dtype: Annotated[KvDtype | None, typer.Option(help="KV-cache dtype.")] = None,
     out_dir: Annotated[Path, typer.Option("--out", help="Results directory.")] = Path("results"),
-    warm: Annotated[bool, typer.Option(help="Also stop, restart and time the warm start.")] = True,
     keep: Annotated[bool, typer.Option("--keep", help="Keep the deployment afterwards.")] = False,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask before launching.")] = False,
 ) -> None:
@@ -544,9 +544,14 @@ def bench_(
             dry_run=False,
         )
         spec = spec.model_copy(update={"name": f"bench-{spec.name}-{spec.weights}"})
-        # A volume of its own, where the GPU is in stock, removed afterwards: the warm restart
-        # reads the weights from it, and runs can go in parallel on any GPUs.
-        runpod = catalog.providers.runpod.model_copy(update={"network_volume": spec.name})
+        # No cache volume, so the pod can go to any data centre with the GPU; the weights go on
+        # the container disk, sized to hold them (BF16 27B is 52 GiB) with room to spare.
+        disk_gb = max(
+            catalog.providers.runpod.container_disk_gb, math.ceil(spec.fit.weights_gb * 1.3) + 10
+        )
+        runpod = catalog.providers.runpod.model_copy(
+            update={"network_volume": None, "container_disk_gb": disk_gb}
+        )
         catalog = catalog.model_copy(
             update={"providers": catalog.providers.model_copy(update={"runpod": runpod})}
         )
@@ -557,12 +562,12 @@ def bench_(
         with _errors():
             t0 = time.monotonic()
             d, api_key = _launch(spec, adapter)
-            result = _bench_run(d, api_key, adapter, catalog, time.monotonic() - t0, warm)
+            result = _bench_run(d, api_key, adapter, catalog, time.monotonic() - t0)
     finally:
         if not keep and spec.name in state.load().deployments:
             d = state.load().deployments[spec.name]
             with _errors():
-                adapter.destroy(d, purge=True)
+                adapter.destroy(d)
                 state.remove(d.name)
                 secrets.delete(d.secret_name)
             out.print(f"Destroyed {d.name}.")
@@ -573,7 +578,7 @@ def bench_(
 
 
 def _bench_run(
-    d: Deployment, api_key: str, adapter: Provider, catalog: Catalog, first_s: float, warm: bool
+    d: Deployment, api_key: str, adapter: Provider, catalog: Catalog, ready_s: float
 ) -> dict[str, object]:
     spec, base_url = d.spec, d.base_url or ""
     args = spec.vllm_args
@@ -589,7 +594,6 @@ def _bench_run(
         decode = [bench.decode(http, base_url, spec.repo, n) for n in (1, 4)]
         status.update("Benchmark: tool calls…")
         tools = bench.tool_calls(http, base_url, spec.repo)
-    warm_result = _bench_warm(d, api_key, adapter) if warm else None
     return {
         "schema_version": 1,
         "thetaserve_version": __version__,
@@ -612,7 +616,7 @@ def _bench_run(
         "vllm_args": args,
         "estimate": {**spec.fit.model_dump(), "kv_scale": _model_source(catalog, spec.model)[2]},
         "measured": measured,
-        "time_to_ready_s": {"first": round(first_s, 1), "warm": warm_result},
+        "time_to_ready_s": round(ready_s, 1),
         "ttft": ttft,
         "decode": decode,
         "cost_per_million_output_tokens": {
@@ -621,28 +625,6 @@ def _bench_run(
         },
         "tool_calls": tools,
     }
-
-
-def _bench_warm(d: Deployment, api_key: str, adapter: Provider) -> dict[str, object]:
-    """Stop the pod, start it again and time it until vLLM answers."""
-    try:
-        with out.status("Benchmark: warm restart…"):
-            d = adapter.stop(d)
-            deadline = time.monotonic() + RUNNING_TIMEOUT_S
-            while d.status != "EXITED" and time.monotonic() < deadline:
-                time.sleep(5)
-                d = adapter.refresh(d)
-            t0 = time.monotonic()
-            d = adapter.wait_running(adapter.start(d), RUNNING_TIMEOUT_S)
-            state.put(d)
-            health.wait_ready(d.base_url or "", api_key, READY_TIMEOUT_S)
-            ready_s = time.monotonic() - t0
-        return {
-            "ready_s": round(ready_s, 1),
-            **bench.parse_startup(adapter.logs(d, follow=False, tail=2000)),
-        }
-    except (ProviderError, health.NotReady) as exc:
-        return {"error": str(exc)}
 
 
 def _print_bench(r: dict[str, object]) -> None:
@@ -657,8 +639,7 @@ def _print_bench(r: dict[str, object]) -> None:
         ("$/M out", ", ".join(f"{k.split('_')[1]} req: {_num(v, '', '$')}"
                               for k, v in r["cost_per_million_output_tokens"].items())),  # type: ignore[attr-defined]
         ("tool calls", f"{r['tool_calls']['passed']}/{r['tool_calls']['total']}"),  # type: ignore[index]
-        ("ready", f"first {r['time_to_ready_s']['first']} s, warm "  # type: ignore[index]
-                  f"{(r['time_to_ready_s']['warm'] or {}).get('ready_s', '-')} s"),  # type: ignore[index]
+        ("ready", f"{r['time_to_ready_s']} s"),
     ]:  # fmt: skip
         table.add_row(label, escape(str(value)))
     out.print(table)

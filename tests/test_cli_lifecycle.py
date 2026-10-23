@@ -156,20 +156,6 @@ def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
         return httpx.Response(200, json={"choices": [{"message": {"tool_calls": []}}]})
 
     mocked_runpod.post(f"{PROXY}/chat/completions").mock(side_effect=chat)
-    mocked_runpod.get(f"{API_URL}/v2/network-volumes").respond(
-        json={
-            "networkVolumes": [
-                {
-                    "id": "vol2",
-                    "name": "bench-qwen3.8-27b-rtx-a6000-fp8",
-                    "dataCenter": "US-TX-3",
-                    "size": 100,
-                }
-            ],
-            "pagination": {"nextCursor": None, "hasNextPage": False},
-        }
-    )
-    mocked_runpod.delete(f"{API_URL}/v2/network-volumes/vol2", name="delete_volume").respond(204)
     mocked_runpod.get("https://pod1-8000.proxy.runpod.net/version").respond(
         json={"version": "0.32.0"}
     )
@@ -185,7 +171,9 @@ def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
     )  # fmt: skip
     assert result.exit_code == 0, result.output
     assert mocked_runpod["delete"].called
-    assert mocked_runpod["delete_volume"].called  # the bench volume goes with the pod
+    body = json.loads(mocked_runpod["create"].calls.last.request.content)
+    assert "mounts" not in body  # no cache volume: any data centre with the GPU
+    assert body["disk"] == 48  # 28.75 GiB of weights x 1.3 + 10
     assert state.load().deployments == {}
     path = next(tmp_path.glob("qwen3.8-27b/nvidia-rtx-a6000-fp8-runpod-*.json"))
     r = json.loads(path.read_text())
@@ -196,7 +184,7 @@ def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
     assert [d["concurrency"] for d in r["decode"]] == [1, 4]
     assert r["tool_calls"]["passed"] == 0
     assert r["weights"] == "fp8"
-    assert r["time_to_ready_s"]["warm"]["ready_s"] >= 0
+    assert r["time_to_ready_s"] >= 0
     assert "rp-key" not in path.read_text()
 
 

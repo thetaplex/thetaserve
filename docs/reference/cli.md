@@ -107,12 +107,11 @@ deployment. `--purge` also deletes the cache volume, unless a different deployme
 ## bench
 
 `thetaserve bench --provider runpod --model M --device D [--use U] [--precision P]
-[--context N] [--kv-cache-dtype K] [--out results] [--no-warm] [--keep] [-y|--yes]`.
+[--context N] [--kv-cache-dtype K] [--out results] [--keep] [-y|--yes]`.
 Launches the recommended option on GPU `D` (the first row `up --device D` shows), or with
 `--precision 4bit|8bit|16bit` the first option at exactly that weight precision. Runs the fixed
 workload, writes `results/<model>/<device>-<weights>-<provider>-<date>.json`, and removes the deployment
-unless `--keep`. Each run has its own cache volume, deleted with the pod. The pod has `--idle 30m` and `--max-life 3h`. `--no-warm` skips the timed warm
-restart. A run takes approximately 15-25 minutes of GPU time.
+unless `--keep`. Runs use no cache volume; the container disk holds the weights. The pod has `--idle 30m` and `--max-life 3h`. A run takes approximately 15-25 minutes of GPU time.
 
 ## Exit status
 

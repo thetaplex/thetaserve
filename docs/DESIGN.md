@@ -450,8 +450,7 @@ It measures, timed on the caller's machine (proxy latency included):
   starts with a new random prefix, so the prefix cache does not hide the prefill;
 - memory from vLLM's start-up log (weights, peak activation, CUDA graphs, KV cache size and
   tokens), next to the estimate (section 6.1) and `kv_scale`;
-- time to ready: the first start (weight download time from the log shows if the cache volume
-  had the weights) and a warm restart (`stop`, `start`, ready; `--no-warm` skips it);
+- time to ready, and the weight download time from the log;
 - $/h and $ per million output tokens at 1 and 4 requests;
 - tool-call reliability: 10 fixed prompts against 5 coding-agent tools, 5 times each at
   temperature 0.7 (50 calls), passed when the call has the exact function and arguments. It compares 4-bit with 8-bit (section 5.1).
@@ -466,9 +465,10 @@ digest, cloud type, data centre, price and all metrics. A second run of the same
 the same day replaces the file. Commit the results, so that anyone can reproduce and compare
 them.
 
-Each run uses a cache volume of its own (named like the deployment, `bench-<model>-<GPU>-<weights>`), in the data centre with the most
-stock of the GPU, whatever `network_volume` says. `bench` deletes it with the pod. Thus the warm
-restart reads the weights from a volume, and runs can go in parallel on any GPUs.
+Runs use no cache volume, whatever `network_volume` says, so the pod can go to any data
+centre with the GPU (not every data centre supports volumes). The weights go on the container
+disk, sized to 1.3 × the weights + 10 GB. A warm restart is not measured: without a volume, a
+stopped pod loses its container disk.
 
 The M4 runs and metrics: [benchmark plan](reference/benchmark-plan.md). They use Runpod Secure Cloud, the default `cloud_type`, so that the results show what a
 user gets by default.
