@@ -780,6 +780,7 @@ def env(
                 line = f"$env:{k} = '{v}'"
             case Shell.cmd:
                 line = f"set {k}={v}"
+        # codeql[py/clear-text-logging-sensitive-data]
         print(line)  # plain print: this output is meant to be eval'd, not styled
 
 
