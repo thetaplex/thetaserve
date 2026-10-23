@@ -477,7 +477,7 @@ user gets by default.
 
 ```
 thetaserve/
-  pyproject.toml  uv.lock  justfile  README.md  LICENSE  CHANGELOG.md  CLAUDE.md
+  pyproject.toml  uv.lock  justfile  README.md  LICENSE  CHANGELOG.md  AGENTS.md
   src/thetaserve/
     __init__.py  cli.py  config.py  options.py  spec.py  state.py  secrets.py  health.py
     providers/  base.py  runpod.py  aws.py (M6)
