@@ -86,7 +86,8 @@ variables. See [Connect a client](../how-to/connect-a-client.md).
 
 ## 7. Remove it
 
-Idle stop is not available yet. Runpod charges for the pod until you remove it.
+The pod stops itself after 30 minutes without requests, or after 10 hours in total. A stopped
+pod still costs a little for its disk. Remove it when you are done:
 
 ```sh
 thetaserve down

@@ -76,7 +76,6 @@ class Shell(StrEnum):
     fish = "fish"
     powershell = "powershell"
     cmd = "cmd"
-    json = "json"
 
 
 def _fail(message: str, code: int = 1) -> NoReturn:
@@ -433,8 +432,8 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> None:
     rate_text = f"${rate:.2f}/h" if rate is not None else "unknown rate"
     out.print(f"{spec.model} on {spec.provider} {spec.device}: {rate_text}, billed until stopped.")
     out.print(
-        "[yellow]Automatic idle stop is not implemented yet (M3); "
-        f"run `thetaserve stop {spec.name}` when done.[/yellow]"
+        f"It stops itself after {_human(spec.idle_s)} idle or {_human(spec.max_life_s)} in "
+        f"total; `thetaserve start {spec.name}` resumes it."
     )
     api_key = secrets.new_api_key()
     env = {API_KEY_ENV: api_key}
@@ -605,22 +604,17 @@ def env(
         "device": d.spec.device,
         "provider": d.provider,
         "base_url": d.base_url,
-        "api_key": key,
         "chat_url": f"{d.base_url}/chat/completions",
         "completions_url": f"{d.base_url}/completions",
         "models_url": f"{d.base_url}/models",
         "metrics_url": f"{root}/metrics",
         "health_url": f"{root}/health",  # the only URL that needs no key
     }
-    if shell == Shell.json:
-        print(json.dumps(values, indent=2))
-        return
     info = Table.grid(padding=(0, 2))
     for label, value in values.items():
-        if label != "api_key":
-            info.add_row(label, escape(str(value)))
+        info.add_row(label, escape(str(value)))
     err.print(info)
-    err.print("[dim]Every URL except health_url needs the key. --shell json prints all.[/dim]")
+    err.print("[dim]Every URL except health_url needs the key (OPENAI_API_KEY).[/dim]")
     shell = shell or (Shell.powershell if os.name == "nt" else Shell.posix)
     pairs = {"OPENAI_BASE_URL": d.base_url, "OPENAI_API_KEY": key}
     for k, v in pairs.items():
@@ -633,8 +627,6 @@ def env(
                 line = f"$env:{k} = '{v}'"
             case Shell.cmd:
                 line = f"set {k}={v}"
-            case Shell.json:  # handled above
-                continue
         print(line)  # plain print: this output is meant to be eval'd, not styled
 
 

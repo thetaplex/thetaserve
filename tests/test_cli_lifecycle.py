@@ -86,12 +86,8 @@ def test_full_lifecycle(mocked_runpod: respx.MockRouter) -> None:
     ]
     assert f"{PROXY}/chat/completions" in result.stderr
     assert "https://pod1-8000.proxy.runpod.net/metrics" in result.stderr
+    assert "Qwen/Qwen3.8-27B-FP8" in result.stderr
     assert key not in result.stderr
-
-    values = json.loads(runner.invoke(app, ["env", "--shell", "json"]).stdout)
-    assert values["model"] == "Qwen/Qwen3.8-27B-FP8"
-    assert values["api_key"] == key
-    assert values["base_url"] == PROXY
 
     result = runner.invoke(app, ["logs"])
     assert "GPU KV cache size" in result.output

@@ -33,8 +33,8 @@ The default is the cheapest row that meets the precision floor of the use case. 
 | `--kv-cache-dtype` | `auto` and `fp8` | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2`. Shows only rows with this KV-cache precision |
 | `--any-publisher` | off | Also lists weights from publishers not in `publishers.yaml`, marked `(untrusted publisher)` |
 | `--extra-arg` | none | Extra `vllm serve` argument; repeatable |
-| `--idle` | `30m` | Idle stop (watchdog not implemented yet, M3) |
-| `--max-life` | `10h` | Lifetime stop (watchdog not implemented yet, M3) |
+| `--idle` | `30m` | Stop the pod after this long with no request completed or running, e.g. `45m`, `2h` |
+| `--max-life` | `10h` | Stop the pod this long after the container starts, whatever the activity |
 | `--name` | `<model>-<gpu>` | Deployment name |
 | `--dry-run` | off | Show the spec, the `vllm serve` command and the masked request. Create nothing |
 | `--yes`, `-y` | off | Do not ask before the launch. Necessary when the terminal is not interactive |
@@ -82,12 +82,12 @@ run.
 
 ## env
 
-`thetaserve env [name] [--shell posix|fish|powershell|cmd|json]`. Shows `OPENAI_BASE_URL`
+`thetaserve env [name] [--shell posix|fish|powershell|cmd]`. Shows `OPENAI_BASE_URL`
 and `OPENAI_API_KEY` lines on stdout. Default shell: PowerShell on Windows, POSIX on other
 systems. On stderr it shows the other values: the model name for requests, weights, revision,
 context, device, and the URLs (base, `/chat/completions`, `/completions`, `/models`,
 `/metrics`, `/health`). Thus `eval` reads only the exports. Every URL except `/health` needs
-the key. `--shell json` prints all values, the key included, as one JSON object on stdout.
+the key.
 
 ## logs
 

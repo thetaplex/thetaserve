@@ -1,6 +1,6 @@
 # thetaserve: design brief v0.3
 
-Status: in build (M2 done, section 13.2; next M3). Date: 2026-10-22. This version merges the
+Status: in build (M3 done 2026-10-23; next M4). Date: 2026-10-22. This version merges the
 decision records of 2026-10-20 to 2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
 (PDF, not kept in the repository).
 
@@ -100,7 +100,7 @@ flowchart LR
 | Options (`options.py`) | Read model facts and weight variants from Hugging Face. Find the cheapest GPU in stock for each precision. Select the recommended option (section 6.1) |
 | Spec (`spec.py`) | `LaunchSpec` (image, vLLM args, env, port, disk), memory estimate and the `vllm serve` command |
 | Providers (`providers/`) | `base.py` protocol and dataclasses, `runpod.py`, `aws.py` |
-| Remote scripts (`remote/`) | `start.sh` (starts vLLM and the watchdog), `watchdog.py`, `aws_user_data.sh` template |
+| Host files | `guard.py` (key middleware) and `watchdog.py` (idle and lifetime stop), standard library only. `LaunchSpec.script()` writes both to the host, starts the watchdog and execs vLLM. `aws_user_data.sh` template (M5) |
 | Health (`health.py`) | Poll `/v1/models`. Read the KV-cache size that vLLM logs at start-up. Report the real maximum context |
 | State (`state.py`) | `state.json` in `platformdirs.user_state_dir("thetaserve")` (mode 600 on POSIX): deployments, endpoints, start time, rate. No secrets |
 | Secrets (`secrets.py`) | Make a new vLLM key for each launch. Lookup order, first hit wins: (1) environment variable (`RUNPOD_API_KEY`, `HF_TOKEN`, ...); (2) keyring, only if a real backend is available (the `fail` and `null` backends count as unavailable); (3) `secrets.json` in the user config directory, mode 600 on POSIX, with a one-time warning that it is plaintext. Writes go to keyring when available, else to the file |
@@ -380,7 +380,8 @@ hold them. `up` stores the per-launch vLLM key in the secrets store as
   try another GPU.
 - Endpoint: `https://<podId>-<port>.proxy.runpod.net/v1`. The proxy runs through Cloudflare
   with a 100 s timeout (`524`). Clients must stream long generations.
-- Weights cache: a network volume mounted at `/runpod-volume`, with `HF_HOME` on it. A volume
+- Weights cache: a network volume mounted at `/runpod-volume`, with `HF_HOME` and vLLM's
+  compile cache (`VLLM_CACHE_ROOT`) on it. A volume
   is in one data centre, so the pod must run there. On first use, `up` creates the volume in the
   data centre with the most stock of the GPU. If the GPU is sold out in every data centre that
   has a volume, `up` stops with an error. Planned: offer a volume in another data centre.
@@ -389,8 +390,12 @@ hold them. `up` stores the per-launch vLLM key in the secrets store as
 - Resume: when a stopped pod restarts, the same GPU type can be unavailable. `start` then stops
   with Runpod's message. Planned: offer a new pod on the same volume.
 - Idle stop: the pod must stop itself. If vLLM exits, Runpod restarts the container, so an exit
-  is not sufficient. **Open question:** does a pod get a credential that can stop the pod? If
-  not, pass a separate limited API key as a secret.
+  is not sufficient. Runpod puts `RUNPOD_POD_ID` and a pod-scoped `RUNPOD_API_KEY` in every pod,
+  also when the create body sets `env`. With them the watchdog calls
+  `POST /v2/pods/$RUNPOD_POD_ID/action {"action": "stop"}`. M3 probe, 2026-10-22: an RTX 3090
+  pod running only that call went from RUNNING to EXITED. M3 pilot, 2026-10-23: a Qwen3.8-27B
+  pod launched with `--idle 5m` stopped itself after it was left idle (user report; the pod was
+  removed before its log was read).
 
 ### 8.2 AWS (`aws` extra)
 
@@ -456,7 +461,8 @@ thetaserve/
   src/thetaserve/
     __init__.py  cli.py  config.py  options.py  spec.py  state.py  secrets.py  health.py
     providers/  base.py  runpod.py  aws.py (M5)
-    remote/     start.sh  watchdog.py  aws_user_data.sh   (M3, M5)
+    guard.py  watchdog.py      (written to the host by the launch script)
+    remote/     aws_user_data.sh   (M5)
     catalog/    presets.yaml  bandwidth.yaml  models.yaml  providers.yaml  publishers.yaml
                 samples.json
   results/      (M4)
@@ -472,7 +478,7 @@ thetaserve/
 | M0 (done) | Scaffold, pyproject with extras, config models, catalogues, resolver, fit check, `list`, `up --dry-run`, tests, CI | `thetaserve up ... --dry-run` prints a vLLM command |
 | M1 (done 2026-10-22) | Runpod adapter, secrets, state, health, `up/status/env/logs/stop/down`; options from live data (D1, D2, D4); pinned revision (D3) | Qwen3.8-27B runs on a Runpod 48 GB GPU and a coding agent connects |
 | M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
-| M3 | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
+| M3 (done 2026-10-23) | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
 | M4 | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
 | M5 | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
 | M6 | v0.1 release on PyPI (target 2026-12-07) | `uv tool install thetaserve` works on a clean machine |
@@ -481,7 +487,7 @@ thetaserve/
 
 - ~~Runpod REST API fields, proxy URL format, request timeout on the proxy.~~ Resolved in M1
   (section 8.1). A streamed response of 299 s passed the proxy without a cut.
-- Runpod pod self-stop credential (section 8.1).
+- ~~Runpod pod self-stop credential.~~ Resolved in M3: the pod's own `RUNPOD_API_KEY` (section 8.1).
 - Quality of the FP8 and 4-bit variants for both models.
 - ~~vLLM version that serves both models; flags to disable image input; Gemma tool parser.~~
   Resolved in M2: v0.32.0 serves both. `--limit-mm-per-prompt` with every modality at 0 runs

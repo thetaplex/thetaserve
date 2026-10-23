@@ -21,10 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `up` pins the chosen variant to the commit its sizes were read from (`vllm serve --revision`).
 - `up` offers weights only from the base model's organisation and the publishers in `publishers.yaml` (`RedHatAI`, `nvidia`); `--any-publisher` lists the rest, marked.
 - `up` lists the cheapest GPU in stock for every weight precision (16, 8, 4 bits) and KV-cache precision (16-bit, FP8) that fits the model, cheapest first, from Hugging Face metadata and the Runpod GPU catalogue, and asks which to launch. `--use coding|chat|research` (presets in `presets.yaml`) sets the context and the precision floor for the default; `--min-precision` hides lower precisions; each row shows estimated tokens per second from GPU memory bandwidth (`bandwidth.yaml`); `--model` also takes a Hugging Face repo; `--device` takes a Runpod GPU ID and limits the options to it.
-- `env` also shows the model, the model name for requests, the context, the device and the endpoint URLs, on stderr; `env --shell json` prints all values, the key included, as JSON.
+- `env` also shows the model, the model name for requests, the context, the device and the endpoint URLs, on stderr.
 - Gemma 4 31B launches text-only with `--max-num-seqs 32`; its tool-call and reasoning parsers are verified on an RTX 6000 Ada (`docs/DESIGN.md` section 13.2).
 - `kv_scale` in `models.yaml`: a measured factor on the KV cache per token; 1.5 for Gemma 4 31B.
 
+- Runpod pods stop themselves after `--idle` (default 30 min) without requests or after `--max-life` (default 10 h): a watchdog on the host reads vLLM's `/metrics` and stops the pod with the key Runpod gives every pod.
+- With a cache volume, vLLM's compile cache is kept on it too (`VLLM_CACHE_ROOT`), so a warm start skips most compilation.
 - `up` keeps a crashed server's log, key masked, in the state directory's `logs/`.
 - `up` stops waiting and reports the error when the vLLM log shows a crash, instead of waiting 40 minutes.
 - The built-in vLLM image is `vllm/vllm-openai:v0.32.0`, and Qwen3.8-27B launches with `--max-num-seqs 32`, as run in the M1 pilot on an A40 (`docs/DESIGN.md` section 13.1).

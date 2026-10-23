@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 import thetaserve.guard
+import thetaserve.watchdog
 from thetaserve.guard import RequireKey
 from thetaserve.spec import GUARD_DIR, LaunchSpec
 
@@ -47,12 +48,17 @@ def test_guard_leaves_health_and_preflight_open() -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32" or not shutil.which("bash"), reason="needs bash")
-def test_script_installs_guard_and_execs_vllm(spec: LaunchSpec, tmp_path: Path) -> None:
+def test_script_installs_guard_starts_watchdog_and_execs_vllm(
+    spec: LaunchSpec, tmp_path: Path
+) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     fake = bin_dir / "vllm"  # prints what vLLM would get
     fake.write_text('#!/bin/sh\necho "$PYTHONPATH"\necho "$@"\n')
     fake.chmod(0o755)
+    python = bin_dir / "python3"  # records the watchdog's arguments instead of running it
+    python.write_text(f'#!/bin/sh\necho "$@" > {tmp_path}/watchdog-args\n')
+    python.chmod(0o755)
     guard_dir = tmp_path / "guard"
     script = spec.script().replace(GUARD_DIR, str(guard_dir))
     env = {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "VLLM_API_KEY": "k"}
@@ -67,6 +73,9 @@ def test_script_installs_guard_and_execs_vllm(spec: LaunchSpec, tmp_path: Path) 
     assert "--middleware thetaserve_guard.RequireKey" in out[1]
     assert "--api-key k " in out[1]
 
-    assert (guard_dir / "thetaserve_guard.py").read_text() == Path(
-        thetaserve.guard.__file__
-    ).read_text()
+    for module, name in [(thetaserve.guard, "guard"), (thetaserve.watchdog, "watchdog")]:
+        assert (guard_dir / f"thetaserve_{name}.py").read_text() == Path(
+            str(module.__file__)
+        ).read_text()
+    watchdog_args = (tmp_path / "watchdog-args").read_text().split()
+    assert watchdog_args == [f"{guard_dir}/thetaserve_watchdog.py", "8000", "1800", "36000"]

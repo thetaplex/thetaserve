@@ -84,7 +84,11 @@ def test_create_reuses_volume_where_gpu_is_in_stock(runpod: RunPod, spec: Launch
     body = json.loads(create.calls.last.request.content)
     assert body["mounts"]["network"] == [{"volumeId": "vol-us", "path": "/runpod-volume"}]
     assert body["dataCenterIds"] == ["US-TX-3"]
-    assert body["env"] == {"HF_HOME": "/runpod-volume/huggingface", "VLLM_API_KEY": "secret-key"}
+    assert body["env"] == {
+        "HF_HOME": "/runpod-volume/huggingface",
+        "VLLM_CACHE_ROOT": "/runpod-volume/vllm",
+        "VLLM_API_KEY": "secret-key",
+    }
     assert create.calls.last.request.headers["Authorization"] == "Bearer rp-key"
     assert d.provider_id == "pod1"
     assert d.base_url == "https://pod1-8000.proxy.runpod.net/v1"

@@ -69,13 +69,20 @@ class LaunchSpec(BaseModel):
         return " ".join(["vllm", "serve", *quoted])
 
     def script(self) -> str:
-        """Bash script for the host: write the key guard, then exec vLLM (DESIGN.md section 9).
+        """Bash script for the host: write the key guard and the watchdog, start the watchdog,
+        then exec vLLM (DESIGN.md sections 9 and 15).
 
         exec makes vLLM the process that receives stop signals.
         """
-        guard = files("thetaserve").joinpath("guard.py").read_text("utf-8")
+        writes = "".join(
+            f"cat > {GUARD_DIR}/thetaserve_{name}.py <<'EOF'\n"
+            f"{files('thetaserve').joinpath(f'{name}.py').read_text('utf-8')}EOF\n"
+            for name in ("guard", "watchdog")
+        )
         return (
-            f"mkdir -p {GUARD_DIR} && cat > {GUARD_DIR}/thetaserve_guard.py <<'EOF'\n{guard}EOF\n"
+            f"mkdir -p {GUARD_DIR}\n{writes}"
+            f"python3 {GUARD_DIR}/thetaserve_watchdog.py {self.port} {self.idle_s} "
+            f"{self.max_life_s} &\n"
             f"PYTHONPATH={GUARD_DIR}${{PYTHONPATH:+:$PYTHONPATH}} exec {self.command()}"
         )
 

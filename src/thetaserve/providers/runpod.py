@@ -18,6 +18,8 @@ from thetaserve.state import Deployment
 API_URL = "https://api.runpod.io"
 VOLUME_PATH = "/runpod-volume"
 HF_HOME = f"{VOLUME_PATH}/huggingface"
+# torch.compile and CUDA graph cache; on the volume, a warm start skips most compilation.
+VLLM_CACHE_ROOT = f"{VOLUME_PATH}/vllm"
 MASK = "****"
 POLL_S = 5.0
 _AVAILABILITY_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
@@ -180,7 +182,7 @@ class RunPod:
             "gpu": {"id": _gpu_id(spec), "count": 1},
         }
         if volume_id:
-            body["env"] = {"HF_HOME": HF_HOME, **env}
+            body["env"] = {"HF_HOME": HF_HOME, "VLLM_CACHE_ROOT": VLLM_CACHE_ROOT, **env}
             body["mounts"] = {"network": [{"volumeId": volume_id, "path": VOLUME_PATH}]}
             body["dataCenterIds"] = [data_center]
         return body

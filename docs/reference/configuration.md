@@ -92,6 +92,6 @@ thetaserve never writes secrets to `state.json` and never shows them unmasked.
 | --- | --- |
 | Command | `/bin/bash -c` with a script that writes `/tmp/thetaserve/thetaserve_guard.py`, then runs `exec vllm serve <repo> --port <port> --api-key "$VLLM_API_KEY" --middleware thetaserve_guard.RequireKey ...` |
 | Unauthenticated paths | `/health` only |
-| Environment | `VLLM_API_KEY`; `HF_TOKEN` if stored; `HF_HOME=/runpod-volume/huggingface` with a cache volume |
+| Environment | `VLLM_API_KEY`; `HF_TOKEN` if stored; `HF_HOME=/runpod-volume/huggingface` and `VLLM_CACHE_ROOT=/runpod-volume/vllm` (compile cache) with a cache volume |
 | Port | `<port>/http`, served at `https://<pod-id>-<port>.proxy.runpod.net/v1` |
 | Runpod API | REST v2, `https://api.runpod.io/v2`, Bearer authentication |

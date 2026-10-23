@@ -6,7 +6,7 @@
 
 One command to launch an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU and get back a secured, OpenAI-compatible endpoint.
 
-> **Status: pre-alpha.** Launch on Runpod works (milestone M1). On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. Automatic idle stop comes in M3: until then, stop pods yourself. See the [build order](docs/DESIGN.md#12-build-order).
+> **Status: pre-alpha.** Launch on Runpod works (milestone M1). On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. Pods stop themselves when idle (`--idle`, default 30 min) or after `--max-life` (default 10 h). See the [build order](docs/DESIGN.md#12-build-order).
 
 ## Why
 
