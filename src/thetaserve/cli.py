@@ -81,6 +81,11 @@ class Shell(StrEnum):
     cmd = "cmd"
 
 
+class Cloud(StrEnum):
+    secure = "SECURE"  # Runpod-owned data-centre hardware
+    community = "COMMUNITY"  # community-hosted hardware
+
+
 def _fail(message: str, code: int = 1) -> NoReturn:
     err.print(f"[red]error:[/red] {escape(message)}", highlight=False)
     raise typer.Exit(code)
@@ -100,6 +105,13 @@ def _errors() -> Iterator[None]:
 def _catalog() -> Catalog:
     with _errors():
         return load_catalog()
+
+
+def _with_cloud(catalog: Catalog, cloud: Cloud) -> Catalog:
+    """Switch the Runpod cloud tier for this run without touching the catalog files."""
+    runpod = catalog.providers.runpod.model_copy(update={"cloud_type": cloud.value})
+    providers = catalog.providers.model_copy(update={"runpod": runpod})
+    return catalog.model_copy(update={"providers": providers})
 
 
 def parse_duration(value: str) -> int:
@@ -211,6 +223,10 @@ def up(
     min_precision: Annotated[
         Precision | None, typer.Option(help="Lowest weight precision; overrides the use case.")
     ] = None,
+    cloud: Annotated[
+        Cloud | None,
+        typer.Option("--cloud", help="Runpod cloud tier; overrides the configured one."),
+    ] = None,
     port: Annotated[int, typer.Option(min=1, max=65535, help="Port vLLM listens on.")] = 8000,
     context: Annotated[
         int | None, typer.Option(min=1, help="Context length in tokens; overrides --use.")
@@ -241,6 +257,8 @@ def up(
     and asks which to launch.
     """
     catalog = _catalog()
+    if cloud is not None:
+        catalog = _with_cloud(catalog, cloud)
     with _errors():
         adapter = get_provider(provider, catalog)
         spec = _pick(
@@ -513,6 +531,10 @@ def bench_(
     precision: Annotated[
         Precision | None, typer.Option(help="Weight precision; default the recommended one.")
     ] = None,
+    cloud: Annotated[
+        Cloud | None,
+        typer.Option("--cloud", help="Runpod cloud tier; overrides the configured one."),
+    ] = None,
     context: Annotated[int | None, typer.Option(min=1, help="Context length in tokens.")] = None,
     kv_cache_dtype: Annotated[KvDtype | None, typer.Option(help="KV-cache dtype.")] = None,
     out_dir: Annotated[Path, typer.Option("--out", help="Results directory.")] = Path("results"),
@@ -522,6 +544,8 @@ def bench_(
     """Launch the recommended option on one GPU, run the fixed workload, write one JSON result,
     then remove the deployment (DESIGN.md section 10)."""
     catalog = _catalog()
+    if cloud is not None:
+        catalog = _with_cloud(catalog, cloud)
     with _errors():
         spec = _pick(
             catalog,

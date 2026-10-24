@@ -397,6 +397,16 @@ hold them. `up` stores the per-launch vLLM key in the secrets store as
   pod running only that call went from RUNNING to EXITED. M3 pilot, 2026-10-23: a Qwen3.8-27B
   pod launched with `--idle 5m` stopped itself after it was left idle (user report; the pod was
   removed before its log was read).
+- Cloud tier: the pod's `cloud` is `SECURE` (Runpod data centres) or `COMMUNITY` (community
+  hardware); it picks the price and stock columns Runpod reports for that tier. Configured in
+  `providers.yaml` (`cloud_type`) and overidden per launch with `--cloud`. Both tiers use the
+  same `/v2/pods` lifecycle above.
+- Serverless is out of scope for this adapter. It is a different product (`POST /v2/serverless`,
+  not a pod tier), per-token billing instead of per-hour, and on-demand workers that scale to
+  zero: a 27B vLLM boot is minutes, so an idle gap means a full reload, and the request model is
+  a job queue (`/run`) or a load-balanced HTTP base, not the persistent, warmed, `--idle`-
+  stopped pod this CLI serves. A serverless adapter would ride the same `Provider` protocol but
+  cannot be validated without real hardware, so it waits on a milestone, like AWS. Checked 2026-10-22.
 
 ### 8.2 AWS (`aws` extra)
 

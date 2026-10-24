@@ -247,6 +247,20 @@ def test_price_per_hour_uses_configured_cloud(runpod: RunPod, spec: LaunchSpec) 
 
 
 @respx.mock
+def test_community_cloud_uses_community_price_and_field(spec: LaunchSpec) -> None:
+    cfg = load_catalog().providers.runpod.model_copy(
+        update={"cloud_type": "COMMUNITY", "network_volume": None}
+    )
+    create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod(cost=0.33))
+
+    d = RunPod(cfg, "rp-key").create(spec, {"VLLM_API_KEY": "secret-key"})
+
+    assert d.cost_per_hr == pytest.approx(0.33)  # community tier, not the secure price
+    body = json.loads(create.calls.last.request.content)
+    assert body["cloud"] == "COMMUNITY"
+
+
+@respx.mock
 def test_create_without_cache_volume_lets_runpod_place_the_pod(spec: LaunchSpec) -> None:
     cfg = load_catalog().providers.runpod.model_copy(update={"network_volume": None})
     create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod())

@@ -105,6 +105,14 @@ def test_full_lifecycle(mocked_runpod: respx.MockRouter) -> None:
     assert secrets.get(d.secret_name) is None
 
 
+def test_cloud_flag_selects_community_tier(mocked_runpod: respx.MockRouter) -> None:
+    result = runner.invoke(app, [*UP, "--cloud", "COMMUNITY", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "$0.33/h" in result.output  # community price, not the secure $0.49
+    body = json.loads(mocked_runpod["create"].calls.last.request.content)
+    assert body["cloud"] == "COMMUNITY"
+
+
 def test_up_refuses_duplicate_name(mocked_runpod: respx.MockRouter) -> None:
     assert runner.invoke(app, [*UP, "--yes"]).exit_code == 0
     result = runner.invoke(app, [*UP, "--yes"])
