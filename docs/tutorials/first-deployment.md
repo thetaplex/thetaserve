@@ -4,7 +4,7 @@ In this tutorial, you launch Qwen3.8-27B on a Runpod A40 (48 GB). You connect a 
 Then you remove it. This takes approximately 30 minutes. The pod costs approximately $0.59 per
 hour.
 
-> **Pre-alpha.** This procedure ran on 2026-10-22 (the M1 pilot). If a step fails, keep the
+> **Beta (v0.1.0).** This procedure ran on 2026-10-22 (the M1 pilot). If a step fails, keep the
 > error output and open an issue.
 
 ## Before you start
@@ -56,7 +56,7 @@ Runpod. It shows a table. Each row is the cheapest GPU in stock for one weight p
 The cheapest row is first.
 
 The dry run takes the cheapest row with 8-bit weights or more. This is usually an NVIDIA A40
-(48 GB) with `Qwen/Qwen3.8-27B-FP8`, 38.7 of 44.2 GiB, $0.59/h. Below the table, you see the
+(48 GB) with `Qwen/Qwen3.8-27B-FP8`, 39.9 of 44.2 GiB, $0.59/h. Below the table, you see the
 `vllm serve` command and the request body. The API key shows as `****`. The dry run creates
 nothing.
 
@@ -70,8 +70,8 @@ The same table shows, then the prompt `Launch which option`. Press Enter to sele
 (the row of the dry run), or type the number of a different row.
 
 thetaserve creates the pod and waits for it to start. Then vLLM downloads approximately 29 GiB
-of weights, loads them and prepares the GPU. In the pilot this took 4 minutes after the pod
-started. Runpod can take 10 minutes more to start the pod. When thetaserve shows `Ready.`, the
+of weights, loads them and prepares the GPU. In the pilot, the time from pod creation to ready
+was 4 minutes. Runpod can take 10 minutes more to start the pod. When thetaserve shows `Ready.`, the
 endpoint is available.
 
 ## 6. Use it
@@ -87,7 +87,8 @@ variables. See [Connect a client](../how-to/connect-a-client.md).
 ## 7. Remove it
 
 The pod stops itself after 30 minutes without requests, or after 10 hours in total. A stopped
-pod still costs a little for its disk. Remove it when you are done:
+pod without a cache volume costs nothing, but it erases the weights, so a restart downloads
+them again. Remove the pod when you are done:
 
 ```sh
 thetaserve down

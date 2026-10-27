@@ -29,12 +29,12 @@ curl -s "$OPENAI_BASE_URL/models" -H "Authorization: Bearer $OPENAI_API_KEY"
 ```
 
 In your client, set the model name to the `id` in the response (for example
-`Qwen/Qwen3.8-27B-FP8`). `thetaserve env` also shows it, as `request as`.
+`Qwen/Qwen3.8-27B-FP8`). `thetaserve env` also shows it on stderr, as `model`.
 
 ## Stream long generations
 
-Runpod's proxy stops a request after 100 s with HTTP 524. If a request can take longer, set
-streaming on in the client. Most coding agents use streaming already.
+Runpod's proxy stops a request after 100 s with HTTP 524. If a request can take longer, turn
+on streaming in the client. Most coding agents use streaming already.
 
 ## If it fails
 

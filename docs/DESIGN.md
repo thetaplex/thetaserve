@@ -1,7 +1,8 @@
 # thetaserve: design brief v0.3
 
-Status: in build (M3 done 2026-10-23; M4 in progress). Date: 2026-10-22. This version merges the
-decision records of 2026-10-20 to 2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
+Status: beta. v0.1.0 is on PyPI (M5, 2026-10-23). M4 runs are pending. Date: 2026-10-22,
+status updated 2026-10-27. This version merges the decision records of 2026-10-20 to
+2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
 (PDF, not kept in the repository).
 
 Writing rules for this document: dates are ISO 8601. Memory sizes are GiB (IEC 80000-13)
@@ -500,7 +501,7 @@ thetaserve/
 | M2 (done 2026-10-22) | Pilot: verify family settings and calibrate the overhead for both launch models; resolve the open questions in section 13 | Both launch models have verified family flags and a measured overhead |
 | M3 (done 2026-10-23) | Watchdog (idle and maximum lifetime) on Runpod | An idle pod stops itself |
 | M4 (harness done; runs pending) | `bench` and first results | Results for 2 models × 3 GPUs committed; published post (target 2026-11-09) |
-| M5 (moved ahead of M4 on 2026-10-23) | v0.1.0 beta release on PyPI, Runpod only | `uv tool install thetaserve` works on a clean machine |
+| M5 (done 2026-10-23, moved ahead of M4) | v0.1.0 beta release on PyPI, Runpod only | `uv tool install thetaserve` works on a clean machine |
 | M6 (after v0.1) | AWS adapter and tunnel | Same model on g6e.xlarge through a tunnel |
 
 M5 moved ahead of M4 on 2026-10-23: launch, watchdog and teardown on Runpod already work
@@ -604,7 +605,7 @@ Calibration from both pilots: overhead 3.2 GiB for all models (the larger measur
 | --- | --- |
 | Idle shutdown | Every minute, the watchdog reads vLLM's Prometheus `/metrics`. If the completed-request counter does not change and no request runs for `--idle` (default 30 min), the watchdog stops the host (sections 8.1, 8.2) |
 | Maximum lifetime | Hard stop after `--max-life` (default 10 h), regardless of activity |
-| Stop and down | `stop` pauses compute and keeps the weights (you pay for disk only). `down` removes compute. The cache volume stays, unless `--purge` |
+| Stop and down | `stop` pauses compute. With a cache volume, the weights stay on it, and you pay for the volume only. Without one, a stopped pod bills nothing, and it loses the weights. `down` removes compute. The cache volume stays, unless `--purge` |
 | Visibility | `up` shows the hourly rate before it creates anything. `status` shows the rate, uptime and cost so far |
 | Budget alarm | Recommended, set once by hand: an AWS Budgets alert and a Runpod spend limit |
 

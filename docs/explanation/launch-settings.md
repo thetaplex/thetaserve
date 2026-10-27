@@ -35,7 +35,8 @@ default row:
 
 The 8-bit floor for coding is a judgement, not a measurement. An agent makes long chains of
 exact tool calls, and small errors cause more damage there than in conversation. For
-Qwen3.8-27B, 4-bit saves only approximately $0.26/h.
+Qwen3.8-27B, 4-bit saves no money: in the sample of 2026-10-22, the cheapest 4-bit and 8-bit
+rows are on the same A40 at $0.59/h.
 
 Because the floor is not measured, it only selects the default row. The table also shows the
 rows below the floor, so you can compare quality and price yourself. `--min-precision` removes
@@ -44,11 +45,11 @@ them.
 ## What 4-bit gives: memory, not speed
 
 4-bit weights seldom let the model fit on a cheaper GPU for coding. For Qwen3.8-27B at 128K,
-4-bit needs 24–30 GiB. A 24 GB card has only 22.1 GiB usable. Also, 24 GB cards on Runpod cost
-the same as a 48 GB A40 or more.
+4-bit needs 24–30 GiB. A 24 GB card has only 22.1 GiB usable, so even at 4 bits the model does
+not fit.
 
-4-bit gives free memory on the same GPU. On an A40 at 128K, FP8 weights use 38.7 of 44.2 GiB
-and 4-bit uses 29.6 GiB. Thus approximately 9 GiB more is available for vLLM's KV cache. More
+4-bit gives free memory on the same GPU. On an A40 at 128K, FP8 weights use 39.9 of 44.2 GiB
+and 4-bit uses 29.3 GiB. Thus approximately 10 GiB more is available for vLLM's KV cache. More
 memory gives more parallel agent sessions, more prefix-cache hits on repeated prompts, or the
 model's full context on a cheap card. The `memory` column shows the free memory.
 
@@ -86,12 +87,13 @@ an option does not change what runs.
 
 `--device "NVIDIA A40"` shows only the options on that GPU. Use it when you must repeat a
 launch on a specific GPU, for example for a benchmark or a bug report. Add `--context` and
-`--kv-cache-dtype` to fix the row too.
+`--kv-cache-dtype` to set the row too.
 
 ## What is hand-written
 
 No metadata gives two things: the vLLM tool-call and reasoning parsers for each model family,
 and the memory overhead. The parsers come from the `common_args` of the model's entry in
 `models.yaml`. A model without an entry launches without them, with a warning. The 3.2 GiB
-overhead is the larger of two measurements (Qwen3.8-27B, Gemma 4 31B). For Gemma 4, vLLM also
+overhead is the larger of two measurements (Qwen3.8-27B 2.2 GiB, Gemma 4 31B 3.1 GiB), rounded
+up. For Gemma 4, vLLM also
 needs 1.5× the KV cache that `config.json` gives; `kv_scale` in `models.yaml` records that.
