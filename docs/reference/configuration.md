@@ -7,7 +7,7 @@ Resolved with [platformdirs](https://platformdirs.readthedocs.io/).
 | Purpose | Linux | macOS | Windows |
 | --- | --- | --- | --- |
 | User config (catalogue overrides, `secrets.json`) | `~/.config/thetaserve/` | `~/Library/Application Support/thetaserve/` | `%LOCALAPPDATA%\thetaserve\` |
-| State (`state.json`) | `~/.local/state/thetaserve/` | `~/Library/Application Support/thetaserve/` | `%LOCALAPPDATA%\thetaserve\` |
+| State (`state.json`, crash logs in `logs/`) | `~/.local/state/thetaserve/` | `~/Library/Application Support/thetaserve/` | `%LOCALAPPDATA%\thetaserve\` |
 
 The built-in files are in the package at `src/thetaserve/catalog/`. A user file with the same
 name overrides them. Its top-level keys replace all of the built-in entry with the same key.
@@ -61,15 +61,17 @@ available. `just samples` fetches it again.
 
 `runpod`:
 
-| Field | Default | Meaning |
-| --- | --- | --- |
-| `api_key_env` | `RUNPOD_API_KEY` | Environment variable read first for the key |
-| `cloud_type` | `SECURE` | `SECURE` or `COMMUNITY` |
-| `network_volume` | `thetaserve-cache` | Cache volume name; `null` for no cache volume |
-| `network_volume_gb` | `100` | Size when the volume is created, GB |
-| `container_disk_gb` | `40` | Pod container disk, GB |
+| Field | Built-in value | Required in a user file | Meaning |
+| --- | --- | --- | --- |
+| `api_key_env` | `RUNPOD_API_KEY` | no (default `RUNPOD_API_KEY`) | Environment variable read first for the key |
+| `cloud_type` | `SECURE` | no (default `SECURE`) | `SECURE` or `COMMUNITY` |
+| `network_volume` | `thetaserve-cache` | yes | Cache volume name; `null` for no cache volume |
+| `network_volume_gb` | `100` | no (default `100`) | Size when the volume is created, GB |
+| `container_disk_gb` | `40` | yes | Pod container disk, GB |
 
-`aws` (adapter not implemented yet): `profile`, `region`, `ami_ssm`, `root_volume_gb`,
+A user `runpod` entry replaces all of the built-in entry, so it must contain the required fields.
+
+`aws` (the adapter comes after v0.1): `profile`, `region`, `ami_ssm`, `root_volume_gb`,
 `ssh_key_name`, `allow_cidr` (default `auto`).
 
 ## Secrets
@@ -90,7 +92,8 @@ thetaserve never writes secrets to `state.json` and never shows them unmasked.
 
 | Item | Value |
 | --- | --- |
-| Command | `/bin/bash -c` with a script that writes `/tmp/thetaserve/thetaserve_guard.py`, then runs `exec vllm serve <repo> --port <port> --api-key "$VLLM_API_KEY" --middleware thetaserve_guard.RequireKey ...` |
+| Command | `/bin/bash -c` with a script that writes `/tmp/thetaserve/thetaserve_guard.py` and `/tmp/thetaserve/thetaserve_watchdog.py`, starts the watchdog, then runs `exec vllm serve <repo> --port <port> --api-key "$VLLM_API_KEY" --middleware thetaserve_guard.RequireKey ...` |
+| Watchdog | Reads `/metrics` each minute. Stops the pod after `--idle` without activity, or `--max-life` after the container starts, with the `RUNPOD_API_KEY` and `RUNPOD_POD_ID` that Runpod puts in every pod |
 | Unauthenticated paths | `/health` only |
 | Environment | `VLLM_API_KEY`; `HF_TOKEN` if stored; `HF_HOME=/runpod-volume/huggingface` and `VLLM_CACHE_ROOT=/runpod-volume/vllm` (compile cache) with a cache volume |
 | Port | `<port>/http`, served at `https://<pod-id>-<port>.proxy.runpod.net/v1` |

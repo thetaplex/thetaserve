@@ -8,8 +8,8 @@ different vLLM image, or give a model a short name and its vLLM flags.
    `~/.config/thetaserve/`.
 
 2. In that directory, create a file with the name of the built-in file: `presets.yaml`,
-   `bandwidth.yaml`, `models.yaml`, `providers.yaml` or `publishers.yaml`. Each top-level key replaces **all** of
-   the built-in entry with the same key. thetaserve does not merge the fields of an entry.
+   `bandwidth.yaml`, `models.yaml`, `providers.yaml` or `publishers.yaml`. Each top-level key
+   replaces **all** of the built-in entry with the same key. thetaserve does not merge the fields of an entry.
 
 ## Trust another weight publisher
 
@@ -60,4 +60,5 @@ thetaserve list models
 thetaserve up --provider runpod --model qwen3.8-27b --dry-run
 ```
 
-A YAML or validation error shows the file and the field.
+A YAML or validation error shows the file and the field, and the command stops with exit
+status 2.

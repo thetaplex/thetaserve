@@ -1,7 +1,7 @@
 # M4 benchmark plan
 
 The runs and metrics of milestone M4 (`thetaserve bench`, [DESIGN.md section 10](../DESIGN.md#10-benchmark-harness-thetaserve-bench)).
-Status: running, 2026-10-23.
+Status: the harness is done, the runs are pending (DESIGN.md section 12, 2026-10-27).
 
 ## Runs
 

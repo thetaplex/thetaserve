@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Documentation: corrected values that changed before v0.1.0 (memory estimates with the 3.2 GiB overhead, the `env` field names, the `providers.yaml` fields a user file must keep, the exit status of a catalogue error), and documented `--version`, the duration format and the crash-log step of `up`.
+
 ## [0.1.0] - 2026-10-23
 
 First beta release, Runpod only.
@@ -21,14 +25,13 @@ First beta release, Runpod only.
 - Local deployment state in the platform's state directory, without secrets.
 - `network_volume: null` in `providers.yaml` launches Runpod pods without a weights cache volume.
 - Documentation in `docs/`: tutorial, how-to guides, reference and explanation.
-- Design decisions D1 (accepted, derive launch options from live data), D2 (accepted, offer every precision) and D3 (accepted, trusted weight publishers) and D4 (accepted, remove device and tier files), in the decision log of `docs/DESIGN.md`.
+- Design decisions D1 (accepted, derive launch options from live data), D2 (accepted, offer every precision), D3 (accepted, trusted weight publishers) and D4 (accepted, remove device and tier files), in the decision log of `docs/DESIGN.md`.
 - `up` pins the chosen variant to the commit its sizes were read from (`vllm serve --revision`).
 - `up` offers weights only from the base model's organisation and the publishers in `publishers.yaml` (`RedHatAI`, `nvidia`); `--any-publisher` lists the rest, marked.
 - `up` lists the cheapest GPU in stock for every weight precision (16, 8, 4 bits) and KV-cache precision (16-bit, FP8) that fits the model, cheapest first, from Hugging Face metadata and the Runpod GPU catalogue, and asks which to launch. `--use coding|chat|research` (presets in `presets.yaml`) sets the context and the precision floor for the default; `--min-precision` hides lower precisions; each row shows estimated tokens per second from GPU memory bandwidth (`bandwidth.yaml`); `--model` also takes a Hugging Face repo; `--device` takes a Runpod GPU ID and limits the options to it.
 - `env` also shows the model, the model name for requests, the context, the device and the endpoint URLs, on stderr.
 - Gemma 4 31B launches text-only with `--max-num-seqs 32`; its tool-call and reasoning parsers are verified on an RTX 6000 Ada (`docs/DESIGN.md` section 13.2).
 - `kv_scale` in `models.yaml`: a measured factor on the KV cache per token; 1.5 for Gemma 4 31B.
-
 - Runpod pods stop themselves after `--idle` (default 30 min) without requests or after `--max-life` (default 10 h): a watchdog on the host reads vLLM's `/metrics` and stops the pod with the key Runpod gives every pod.
 - With a cache volume, vLLM's compile cache is kept on it too (`VLLM_CACHE_ROOT`), so a warm start skips most compilation.
 - `thetaserve bench`: launches the recommended option on one GPU, measures decode speed at 1 and 4 requests, time to first token at 8K-128K, start-up memory against the estimate, time to ready, cost per million output tokens and tool-call reliability, writes one JSON result and removes the deployment.

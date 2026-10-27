@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a change or a new device, model or provider.
+description: Suggest a change, a new model or a new provider.
 labels: [enhancement]
 body:
   - type: textarea
@@ -13,7 +13,7 @@ body:
     id: proposal
     attributes:
       label: Proposal
-      description: What you would like to happen. For a new profile, include measured results if you have them.
+      description: What you would like to happen. For a new model or new family flags, include the results of a real run if you have them.
   - type: textarea
     id: alternatives
     attributes:

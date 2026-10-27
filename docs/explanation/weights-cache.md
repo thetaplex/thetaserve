@@ -1,6 +1,6 @@
 # The weights cache
 
-A 27-31 B model has 29-31 GiB of weights at 8 bits. When vLLM starts, it downloads them from
+A 27-31 B model has approximately 29-31 GiB of weights at 8 bits. When vLLM starts, it downloads them from
 Hugging Face, unless they are already on disk. This page explains where that disk is, and what
 it costs to keep it between runs.
 
@@ -26,7 +26,8 @@ volume lives".
 ## Why the volume is optional
 
 Two numbers decide if the cache is worth its cost: the time of a cold download, and how often
-you launch. A download of a few minutes on an A40 at $0.59/h costs a few cents of GPU time.
+you launch. In the M1 pilot, the weights download took 37 s, and the full cold start took 3 min 52 s. On an
+A40 at $0.59/h, that costs approximately $0.04 of GPU time.
 100 GB of network volume costs $7 a month, if you launch or not. If you launch a few times a
 month, you pay less without the volume, and you can use any data centre.
 
@@ -36,6 +37,6 @@ month, you pay less without the volume, and you can use any data centre.
 
 ## Not yet measured
 
-- **The cold-start time** without a cache.
+- **The warm-start time** from a cache volume, compared with the cold start above.
 - **Global volumes** remove the data-centre pin and keep a cache. They are in beta, and the
   IOPS cost of a 29 GiB read for each launch is not known. thetaserve does not use them.

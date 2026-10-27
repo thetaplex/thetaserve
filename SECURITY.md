@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-thetaserve is pre-release. Only the latest commit on `main` receives security fixes until 1.0.
+thetaserve is in beta (0.x). Until 1.0, security fixes go only to `main` and to the next release on PyPI. Upgrade with `uv tool upgrade thetaserve`.
 
 ## Reporting a vulnerability
 
