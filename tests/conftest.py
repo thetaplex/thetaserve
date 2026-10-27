@@ -29,13 +29,16 @@ QWEN_CONFIG = {
 RUNPOD_GPUS = {
     "gpus": [
         {"id": "NVIDIA A40", "manufacturer": "NVIDIA", "memory": 48, "pool": "AMPERE_48",
-         "price": {"secure": 0.59, "community": 0.41}, "availability": "HIGH"},
+         "secure": True, "community": False,  # Runpod still quotes a community price
+         "price": {"secure": 0.59, "community": 0.21}, "availability": "HIGH"},
         {"id": "NVIDIA RTX A6000", "manufacturer": "NVIDIA", "memory": 48, "pool": "AMPERE_48",
+         "secure": True, "community": True,
          "price": {"secure": 0.49, "community": 0.33}, "availability": "HIGH"},
         {"id": "NVIDIA RTX 4090", "manufacturer": "NVIDIA", "memory": 24, "pool": "ADA_24",
+         "secure": True, "community": True,
          "price": {"secure": 0.69, "community": 0.48}, "availability": "NONE"},
         {"id": "AMD MI300X", "manufacturer": "AMD", "memory": 192, "pool": None,
-         "price": {"secure": 2.39}, "availability": "HIGH"},
+         "secure": True, "community": False, "price": {"secure": 2.39}, "availability": "HIGH"},
     ]
 }  # fmt: skip
 

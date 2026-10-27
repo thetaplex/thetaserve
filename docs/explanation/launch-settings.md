@@ -35,7 +35,7 @@ default row:
 
 The 8-bit floor for coding is a judgement, not a measurement. An agent makes long chains of
 exact tool calls, and small errors cause more damage there than in conversation. For
-Qwen3.8-27B, 4-bit saves no money: in the sample of 2026-10-22, the cheapest 4-bit and 8-bit
+Qwen3.8-27B, 4-bit saves no money: in the sample of 2026-10-27, the cheapest 4-bit and 8-bit
 rows are on the same A40 at $0.59/h.
 
 Because the floor is not measured, it only selects the default row. The table also shows the

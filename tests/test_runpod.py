@@ -9,7 +9,7 @@ import respx
 
 from thetaserve.config import load_catalog
 from thetaserve.providers.base import ProviderError
-from thetaserve.providers.runpod import API_URL, RunPod
+from thetaserve.providers.runpod import API_URL, RunPod, parse_gpus
 from thetaserve.spec import LaunchSpec
 from thetaserve.state import Deployment
 
@@ -277,3 +277,13 @@ def test_create_without_cache_volume_lets_runpod_place_the_pod(spec: LaunchSpec)
     assert "dataCenterIds" not in body
     assert d.extra == {}
     assert "mounts" not in RunPod(cfg, None).plan(spec)
+
+
+def test_gpus_lists_only_types_the_cloud_offers() -> None:
+    # Runpod quotes a community price for Secure-only types such as the A40.
+    a40 = {"id": "NVIDIA A40", "manufacturer": "NVIDIA", "memory": 48, "pool": "AMPERE_48",
+           "secure": True, "community": False,
+           "price": {"secure": 0.59, "community": 0.35}}  # fmt: skip
+    listing = {"gpus": [a40]}
+    assert [g.id for g in parse_gpus(listing, "SECURE")] == ["NVIDIA A40"]
+    assert parse_gpus(listing, "COMMUNITY") == []

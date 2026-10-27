@@ -16,7 +16,10 @@ from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import parse_gpus
 
 FILE = "samples.json"
-_GPU_FIELDS = ("id", "manufacturer", "memory", "pool", "price", "availability")
+_GPU_FIELDS = (
+    "id", "manufacturer", "memory", "pool", "secure", "community", "price", "availability"
+)  # fmt: skip
+_CLOUDS = ("SECURE", "COMMUNITY")
 
 
 def load() -> dict[str, Any]:
@@ -25,7 +28,7 @@ def load() -> dict[str, Any]:
 
 
 def gpus(data: dict[str, Any], cloud_type: str) -> list[Gpu]:
-    return parse_gpus(data["runpod"], cloud_type)
+    return parse_gpus(data["runpod"][cloud_type], cloud_type)
 
 
 def model(data: dict[str, Any], repo: str) -> tuple[ModelFacts, list[Weights]] | None:
@@ -44,7 +47,11 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as empty:  # built-in models only, not the user's
         catalog = load_catalog(Path(empty))
     cfg = catalog.providers.runpod
-    listing = RunPod(cfg, secrets.get(RUNPOD_SECRET, env=cfg.api_key_env)).gpu_listing()
+    key = secrets.get(RUNPOD_SECRET, env=cfg.api_key_env)
+    # Stock differs per cloud, so keep one listing for each.
+    listings = {
+        c: RunPod(cfg.model_copy(update={"cloud_type": c}), key).gpu_listing() for c in _CLOUDS
+    }
     hf: dict[str, Any] = {}
     for m in catalog.models.values():
         # ponytail: trusted publishers only, so `up --any-publisher` offline shows the same
@@ -56,17 +63,20 @@ def main() -> None:
     data: dict[str, Any] = {
         "fetched": datetime.now(UTC).date().isoformat(),
         "runpod": {
-            "gpus": [
-                {k: g.get(k) for k in _GPU_FIELDS}
-                for g in listing["gpus"]
-                if g.get("manufacturer") == "NVIDIA"
-            ]
+            c: {
+                "gpus": [
+                    {k: g.get(k) for k in _GPU_FIELDS}
+                    for g in listing["gpus"]
+                    if g.get("manufacturer") == "NVIDIA"
+                ]
+            }
+            for c, listing in listings.items()
         },
         "huggingface": hf,
     }
     path = Path(__file__).parent / "catalog" / FILE
     path.write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
-    print(f"wrote {path}: {len(data['runpod']['gpus'])} GPUs, {len(hf)} models")
+    print(f"wrote {path}: {len(data['runpod']['SECURE']['gpus'])} GPUs, {len(hf)} models")
 
 
 if __name__ == "__main__":

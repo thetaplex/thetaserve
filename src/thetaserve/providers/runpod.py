@@ -290,11 +290,14 @@ def _arch(gpu: dict[str, Any]) -> Arch | None:
 
 
 def parse_gpus(listing: dict[str, Any], cloud_type: str) -> list[Gpu]:
+    """GPU types this cloud offers; `secure` and `community` flag which cloud has each type."""
+    cloud = cloud_type.lower()
     found = []
     for g in listing["gpus"]:
-        price = (g.get("price") or {}).get(cloud_type.lower())
+        price = (g.get("price") or {}).get(cloud)
         arch = _arch(g)
-        if g.get("manufacturer") == "NVIDIA" and price and arch and g.get("memory"):
+        offered = g.get("manufacturer") == "NVIDIA" and g.get(cloud) and g.get("memory")
+        if offered and price and arch:
             stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
             found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
     return found

@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - On Community Cloud, `up` launches without the cache volume, which Runpod attaches only to Secure Cloud pods, and says so.
+- `up` and `bench` list only the GPU types that the selected cloud tier offers. Runpod gives a Community price for some Secure-only types, such as the A40, and these showed as Community options. `samples.json` now holds a listing for each tier.
 - Without a cache volume, the container disk is sized to hold the weights, as `bench` already did, so BF16 weights fit.
 - Documentation: corrected values that changed before v0.1.0 (memory estimates with the 3.2 GiB overhead, the `env` field names, the `providers.yaml` fields a user file must keep, the exit status of a catalogue error), and documented `--version`, the duration format and the crash-log step of `up`.
 

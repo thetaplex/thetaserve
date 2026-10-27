@@ -214,7 +214,8 @@ the KV cache per token from `config.json` by a measured factor (default 1). Qwen
 
 A dated snapshot of the live data that section 6.1 reads:
 
-- `runpod`: Runpod `GET /v2/catalog/gpus`, NVIDIA GPUs and the fields `up` reads only;
+- `runpod`: Runpod `GET /v2/catalog/gpus` for each cloud tier (`SECURE`, `COMMUNITY`), because
+  the stock is different for each tier; NVIDIA GPUs and the fields `up` reads only;
 - `huggingface`: for each `models.yaml` entry, the model facts and weight variants (with commit
   hashes) that `up` calculated from the Hub.
 
