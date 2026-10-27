@@ -247,10 +247,9 @@ def test_price_per_hour_uses_configured_cloud(runpod: RunPod, spec: LaunchSpec) 
 
 
 @respx.mock
-def test_community_cloud_uses_community_price_and_field(spec: LaunchSpec) -> None:
-    cfg = load_catalog().providers.runpod.model_copy(
-        update={"cloud_type": "COMMUNITY", "network_volume": None}
-    )
+def test_community_cloud_launches_without_the_cache_volume(spec: LaunchSpec) -> None:
+    # The built-in config names a cache volume; Community Cloud pods cannot mount one.
+    cfg = load_catalog().providers.runpod.model_copy(update={"cloud_type": "COMMUNITY"})
     create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod(cost=0.33))
 
     d = RunPod(cfg, "rp-key").create(spec, {"VLLM_API_KEY": "secret-key"})
@@ -258,6 +257,10 @@ def test_community_cloud_uses_community_price_and_field(spec: LaunchSpec) -> Non
     assert d.cost_per_hr == pytest.approx(0.33)  # community tier, not the secure price
     body = json.loads(create.calls.last.request.content)
     assert body["cloud"] == "COMMUNITY"
+    assert "mounts" not in body
+    assert "dataCenterIds" not in body
+    assert body["disk"] >= spec.fit.weights_gb  # the weights go on the container disk
+    assert d.extra == {}
 
 
 @respx.mock

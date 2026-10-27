@@ -11,11 +11,12 @@ launch without it:
      api_key_env: RUNPOD_API_KEY
      cloud_type: SECURE
      network_volume: null
-     container_disk_gb: 50
+     container_disk_gb: 40
    ```
 
-   This entry replaces all of the built-in `runpod` entry, so keep the other fields. Set
-   `container_disk_gb` to the weight size plus approximately 20 GB.
+   This entry replaces all of the built-in `runpod` entry, so keep the other fields. Without a
+   volume the weights go on the container disk, so `up` makes the disk 1.3 times the weight
+   size plus 10 GB when `container_disk_gb` is smaller.
 
 2. Do a dry run:
 

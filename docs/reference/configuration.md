@@ -64,10 +64,10 @@ available. `just samples` fetches it again.
 | Field | Built-in value | Required in a user file | Meaning |
 | --- | --- | --- | --- |
 | `api_key_env` | `RUNPOD_API_KEY` | no (default `RUNPOD_API_KEY`) | Environment variable read first for the key |
-| `cloud_type` | `SECURE` | no (default `SECURE`) | `SECURE` or `COMMUNITY` |
+| `cloud_type` | `SECURE` | no (default `SECURE`) | `SECURE` or `COMMUNITY`. `up --cloud` overrides it for one launch. Community Cloud pods have no cache volume |
 | `network_volume` | `thetaserve-cache` | yes | Cache volume name; `null` for no cache volume |
 | `network_volume_gb` | `100` | no (default `100`) | Size when the volume is created, GB |
-| `container_disk_gb` | `40` | yes | Pod container disk, GB |
+| `container_disk_gb` | `40` | yes | Pod container disk, GB. Without a cache volume, `up` uses at least 1.3 × the weights + 10 GB |
 
 A user `runpod` entry replaces all of the built-in entry, so it must contain the required fields.
 

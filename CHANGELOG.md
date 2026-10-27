@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `up --cloud SECURE|COMMUNITY` and `bench --cloud` launch on Runpod Secure Cloud or Community Cloud for one run, with that tier's prices and stock; `cloud_type` in `providers.yaml` stays the default. The value is not case-sensitive.
+
 ### Fixed
 
+- On Community Cloud, `up` launches without the cache volume, which Runpod attaches only to Secure Cloud pods, and says so.
+- Without a cache volume, the container disk is sized to hold the weights, as `bench` already did, so BF16 weights fit.
 - Documentation: corrected values that changed before v0.1.0 (memory estimates with the 3.2 GiB overhead, the `env` field names, the `providers.yaml` fields a user file must keep, the exit status of a catalogue error), and documented `--version`, the duration format and the crash-log step of `up`.
 
 ## [0.1.0] - 2026-10-23

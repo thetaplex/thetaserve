@@ -32,6 +32,7 @@ The default is the cheapest row that meets the precision floor of the use case. 
 | `--device` | none | Runpod GPU ID, such as `NVIDIA A40`. Shows only the options on that GPU. Error if the GPU is unknown or sold out |
 | `--use` | `coding` | Preset from `presets.yaml`: `coding`, `chat`, `research` |
 | `--min-precision` | none | `4bit`, `8bit` or `16bit`. Removes lower weight precisions |
+| `--cloud` | `cloud_type` | `SECURE` or `COMMUNITY`, in any case. Runpod cloud tier for the prices, the stock and the pod. Community Cloud has no cache volume |
 | `--port` | `8000` | Port vLLM listens on, 1-65535 |
 | `--context` | from `--use` | Context length in tokens |
 | `--kv-cache-dtype` | `auto` and `fp8` | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2`. Shows only rows with this KV-cache precision |
@@ -116,7 +117,7 @@ volume, `--purge` refuses and deletes nothing.
 
 ## bench
 
-`thetaserve bench --provider runpod --model M --device D [--use U] [--precision P]
+`thetaserve bench --provider runpod --model M --device D [--use U] [--precision P] [--cloud C]
 [--context N] [--kv-cache-dtype K] [--out results] [--keep] [-y|--yes]`.
 
 Launches the option that `up --device D` recommends. With `--precision 4bit|8bit|16bit`, it

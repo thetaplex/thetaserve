@@ -1,6 +1,7 @@
 """Runpod adapter, against the Runpod REST API v2 (https://api.runpod.io/v2/openapi.json)."""
 
 import json
+import math
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -48,7 +49,7 @@ class RunPod:
     # -- no network ---------------------------------------------------------------------
 
     def plan(self, spec: LaunchSpec) -> dict[str, Any]:
-        if not self.cfg.network_volume:
+        if not self.volume:
             return self._body(spec, env=dict.fromkeys(spec.secret_env, MASK))
         return self._body(
             spec,
@@ -64,7 +65,7 @@ class RunPod:
 
     def create(self, spec: LaunchSpec, secrets: Mapping[str, str]) -> Deployment:
         volume_id = data_center = None
-        if self.cfg.network_volume:
+        if self.volume:
             volume_id, data_center = self._ensure_volume(_gpu_id(spec))
         body = self._body(spec, env=dict(secrets), volume_id=volume_id, data_center=data_center)
         pod = self._request("POST", "/v2/pods", json=body).json()
@@ -151,6 +152,11 @@ class RunPod:
         return listing
 
     @property
+    def volume(self) -> str | None:
+        """The cache volume name, or None. Network volumes attach only to Secure Cloud pods."""
+        return self.cfg.network_volume if self.cfg.cloud_type == "SECURE" else None
+
+    @property
     def has_key(self) -> bool:
         return bool(self._api_key) or self._client is not None
 
@@ -177,7 +183,7 @@ class RunPod:
             "cmd": [spec.script()],
             "env": env,
             "ports": [f"{spec.port}/http"],
-            "disk": self.cfg.container_disk_gb,
+            "disk": self.cfg.container_disk_gb if volume_id else _disk_for_weights(spec, self.cfg),
             "cloud": self.cfg.cloud_type,
             "gpu": {"id": _gpu_id(spec), "count": 1},
         }
@@ -292,6 +298,11 @@ def parse_gpus(listing: dict[str, Any], cloud_type: str) -> list[Gpu]:
             stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
             found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
     return found
+
+
+def _disk_for_weights(spec: LaunchSpec, cfg: RunPodConfig) -> int:
+    """Container disk without a cache volume: the weights go on it (BF16 27B is 52 GiB)."""
+    return max(cfg.container_disk_gb, math.ceil(spec.fit.weights_gb * 1.3) + 10)
 
 
 def _gpu_id(spec: LaunchSpec) -> str:
