@@ -1,6 +1,6 @@
 # thetaserve: design brief v0.3
 
-Status: beta. v0.1.0 is on PyPI (M5, 2026-10-23). M4 runs are pending. Date: 2026-10-22,
+Status: beta. The latest release is v0.2.0 (2026-10-29); v0.1.0 (M5, 2026-10-23) was the first. M4 runs are pending. Date: 2026-10-22,
 status updated 2026-10-27. This version merges the decision records of 2026-10-20 to
 2026-10-22 (section 17), and decision D4. It replaces v0.2 of 2026-10-20 and the v0.1 draft
 (PDF, not kept in the repository).

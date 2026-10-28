@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
 ### Added
 
 - MXFP4 weights (`quant_method: mxfp4`, gpt-oss), shown as `4-bit mxfp4`. `openai/gpt-oss-120b` now fits one 80 GB GPU.
@@ -57,5 +59,6 @@ First beta release, Runpod only.
 
 - The memory overhead in the fit check is 3.2 GiB, measured, instead of an estimated 2 GiB.
 
-[Unreleased]: https://github.com/thetaplex/thetaserve/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/thetaplex/thetaserve/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/thetaplex/thetaserve/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/thetaplex/thetaserve/releases/tag/v0.1.0

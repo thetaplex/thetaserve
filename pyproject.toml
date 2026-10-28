@@ -1,6 +1,6 @@
 [project]
 name = "thetaserve"
-version = "0.1.0"
+version = "0.2.0"
 description = "Launch open-weight models with vLLM on rented GPUs and get a secured OpenAI-compatible endpoint."
 readme = "README.md"
 license = "Apache-2.0"
