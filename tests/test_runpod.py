@@ -9,7 +9,7 @@ import respx
 
 from thetaserve.config import load_catalog
 from thetaserve.providers.base import ProviderError
-from thetaserve.providers.runpod import API_URL, RunPod
+from thetaserve.providers.runpod import API_URL, RunPod, parse_gpus
 from thetaserve.spec import LaunchSpec
 from thetaserve.state import Deployment
 
@@ -55,7 +55,7 @@ def test_plan_makes_no_requests_and_masks_secrets(runpod: RunPod, spec: LaunchSp
     body = runpod.plan(spec)
     assert not respx.calls
     assert body["env"]["VLLM_API_KEY"] == "****"
-    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1}
+    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1, "minCudaVersion": "13.0"}
     assert body["ports"] == ["8000/http"]
     assert body["entrypoint"] == ["/bin/bash", "-c"]
     assert body["cmd"] == [spec.script()]
@@ -247,6 +247,24 @@ def test_price_per_hour_uses_configured_cloud(runpod: RunPod, spec: LaunchSpec) 
 
 
 @respx.mock
+def test_community_cloud_launches_without_the_cache_volume(spec: LaunchSpec) -> None:
+    # The built-in config names a cache volume; Community Cloud pods cannot mount one.
+    cfg = load_catalog().providers.runpod.model_copy(update={"cloud_type": "COMMUNITY"})
+    create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod(cost=0.33))
+
+    d = RunPod(cfg, "rp-key").create(spec, {"VLLM_API_KEY": "secret-key"})
+
+    assert d.cost_per_hr == pytest.approx(0.33)  # community tier, not the secure price
+    body = json.loads(create.calls.last.request.content)
+    assert body["cloud"] == "COMMUNITY"
+    assert body["gpu"]["minCudaVersion"] == "13.0"  # 12.x hosts cannot run the vLLM image
+    assert "mounts" not in body
+    assert "dataCenterIds" not in body
+    assert body["disk"] >= spec.fit.weights_gb  # the weights go on the container disk
+    assert d.extra == {}
+
+
+@respx.mock
 def test_create_without_cache_volume_lets_runpod_place_the_pod(spec: LaunchSpec) -> None:
     cfg = load_catalog().providers.runpod.model_copy(update={"network_volume": None})
     create = respx.post(f"{API_URL}/v2/pods").respond(201, json=_pod())
@@ -260,3 +278,13 @@ def test_create_without_cache_volume_lets_runpod_place_the_pod(spec: LaunchSpec)
     assert "dataCenterIds" not in body
     assert d.extra == {}
     assert "mounts" not in RunPod(cfg, None).plan(spec)
+
+
+def test_gpus_lists_only_types_the_cloud_offers() -> None:
+    # Runpod quotes a community price for Secure-only types such as the A40.
+    a40 = {"id": "NVIDIA A40", "manufacturer": "NVIDIA", "memory": 48, "pool": "AMPERE_48",
+           "secure": True, "community": False,
+           "price": {"secure": 0.59, "community": 0.35}}  # fmt: skip
+    listing = {"gpus": [a40]}
+    assert [g.id for g in parse_gpus(listing, "SECURE")] == ["NVIDIA A40"]
+    assert parse_gpus(listing, "COMMUNITY") == []

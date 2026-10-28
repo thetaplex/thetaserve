@@ -15,7 +15,9 @@ name overrides them. Its top-level keys replace all of the built-in entry with t
 ## models.yaml
 
 Top level: `schema_version: 2` (built-in only) and `vllm_image`, the image and tag for all
-launches. `up` refuses an image that contains `TODO`.
+launches. `up` refuses an image that contains `TODO`. The Runpod adapter asks for hosts with
+CUDA 13.0 or later, which the built-in image needs. If you set an image with a different CUDA
+version, the floor does not change (DESIGN.md section 8.1).
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -53,7 +55,7 @@ in: `RedHatAI`, `nvidia`. `up --any-publisher` also lists other publishers.
 
 ## samples.json
 
-Built in only. A dated sample of the Runpod GPU catalogue (NVIDIA GPUs only) and of the
+Built in only. A dated sample of the Runpod GPU catalogue for each cloud tier (NVIDIA GPUs only) and of the
 Hugging Face data of each built-in model, trusted publishers only. `up --dry-run` uses it when no Runpod key is
 available. `just samples` fetches it again.
 
@@ -64,10 +66,10 @@ available. `just samples` fetches it again.
 | Field | Built-in value | Required in a user file | Meaning |
 | --- | --- | --- | --- |
 | `api_key_env` | `RUNPOD_API_KEY` | no (default `RUNPOD_API_KEY`) | Environment variable read first for the key |
-| `cloud_type` | `SECURE` | no (default `SECURE`) | `SECURE` or `COMMUNITY` |
+| `cloud_type` | `SECURE` | no (default `SECURE`) | `SECURE` or `COMMUNITY`. `up --cloud` overrides it for one launch. Community Cloud pods have no cache volume |
 | `network_volume` | `thetaserve-cache` | yes | Cache volume name; `null` for no cache volume |
 | `network_volume_gb` | `100` | no (default `100`) | Size when the volume is created, GB |
-| `container_disk_gb` | `40` | yes | Pod container disk, GB |
+| `container_disk_gb` | `40` | yes | Pod container disk, GB. Without a cache volume, `up` uses at least 1.3 × the weights + 10 GB |
 
 A user `runpod` entry replaces all of the built-in entry, so it must contain the required fields.
 

@@ -105,6 +105,19 @@ def test_full_lifecycle(mocked_runpod: respx.MockRouter) -> None:
     assert secrets.get(d.secret_name) is None
 
 
+def test_cloud_flag_selects_community_tier(mocked_runpod: respx.MockRouter) -> None:
+    result = runner.invoke(app, [*UP, "--cloud", "community", "--yes"])  # any case
+    assert result.exit_code == 0, result.output
+    assert "$0.33/h" in result.output  # community price, not the secure $0.49
+    assert "cannot mount a network volume" in result.output
+    body = json.loads(mocked_runpod["create"].calls.last.request.content)
+    assert body["cloud"] == "COMMUNITY"
+    assert "mounts" not in body
+    listing = mocked_runpod["gpus"].calls.last.request.url.params
+    assert listing["cloud"] == "COMMUNITY"
+    assert listing["minCudaVersion"] == "13.0"  # stock only on hosts that can run the image
+
+
 def test_up_refuses_duplicate_name(mocked_runpod: respx.MockRouter) -> None:
     assert runner.invoke(app, [*UP, "--yes"]).exit_code == 0
     result = runner.invoke(app, [*UP, "--yes"])
@@ -142,9 +155,9 @@ def test_crash_log_is_kept_with_the_key_masked(user_dir: Path) -> None:
     assert saved.parent == state.state_dir() / "logs"
 
 
-def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
-    mocked_runpod: respx.MockRouter, tmp_path: Path
-) -> None:
+def _mock_bench(mocked_runpod: respx.MockRouter) -> None:
+    """The vLLM answers a bench run needs, on top of the Runpod mocks."""
+
     def chat(request: httpx.Request) -> httpx.Response:
         if json.loads(request.content).get("stream"):
             chunks = [
@@ -163,12 +176,16 @@ def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
         "https://hub.docker.com/v2/repositories/vllm/vllm-openai/tags/v0.32.0"
     ).respond(json={"digest": "sha256:abc"})
 
-    result = runner.invoke(
-        app,
-        ["bench", "--provider", "runpod", "--model", "qwen3.8-27b",
-         "--device", "NVIDIA RTX A6000", "--out", str(tmp_path), "--yes"],
-        env={"COLUMNS": "200"},
-    )  # fmt: skip
+
+BENCH = ["bench", "--provider", "runpod", "--model", "qwen3.8-27b",
+         "--device", "NVIDIA RTX A6000", "--yes"]  # fmt: skip
+
+
+def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
+    mocked_runpod: respx.MockRouter, tmp_path: Path
+) -> None:
+    _mock_bench(mocked_runpod)
+    result = runner.invoke(app, [*BENCH, "--out", str(tmp_path)], env={"COLUMNS": "200"})
     assert result.exit_code == 0, result.output
     assert mocked_runpod["delete"].called
     body = json.loads(mocked_runpod["create"].calls.last.request.content)
@@ -186,6 +203,19 @@ def test_bench_runs_the_workload_writes_a_result_and_removes_the_pod(
     assert r["weights"] == "fp8"
     assert r["time_to_ready_s"] >= 0
     assert "rp-key" not in path.read_text()
+
+
+def test_bench_cloud_flag_runs_on_community(
+    mocked_runpod: respx.MockRouter, tmp_path: Path
+) -> None:
+    _mock_bench(mocked_runpod)
+    result = runner.invoke(
+        app, [*BENCH, "--cloud", "COMMUNITY", "--out", str(tmp_path)], env={"COLUMNS": "200"}
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(mocked_runpod["create"].calls.last.request.content)["cloud"] == "COMMUNITY"
+    r = json.loads(next(tmp_path.glob("qwen3.8-27b/*.json")).read_text())
+    assert r["cloud_type"] == "COMMUNITY"
 
 
 def test_bench_precision_pins_the_weight_precision(

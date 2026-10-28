@@ -1,542 +1,1266 @@
 {
- "fetched": "2026-10-22",
+ "fetched": "2026-10-28",
  "runpod": {
-  "gpus": [
-   {
-    "id": "NVIDIA A100 80GB PCIe",
-    "manufacturer": "NVIDIA",
-    "memory": 80,
-    "pool": "AMPERE_80",
-    "price": {
-     "community": 1.19,
-     "secure": 1.79,
-     "serverless": 2.72
+  "SECURE": {
+   "gpus": [
+    {
+     "id": "NVIDIA A100 80GB PCIe",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "AMPERE_80",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.19,
+      "secure": 1.79,
+      "serverless": 2.72
+     },
+     "availability": "LOW"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA A100-SXM4-40GB",
-    "manufacturer": "NVIDIA",
-    "memory": 40,
-    "pool": null,
-    "price": {
-     "community": 1,
-     "secure": 0
+    {
+     "id": "NVIDIA A100-SXM4-40GB",
+     "manufacturer": "NVIDIA",
+     "memory": 40,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 1,
+      "secure": 0
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA A100-SXM4-80GB",
-    "manufacturer": "NVIDIA",
-    "memory": 80,
-    "pool": "AMPERE_80",
-    "price": {
-     "community": 1.39,
-     "secure": 1.79,
-     "serverless": 2.72
+    {
+     "id": "NVIDIA A100-SXM4-80GB",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "AMPERE_80",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.39,
+      "secure": 1.79,
+      "serverless": 2.72
+     },
+     "availability": "MEDIUM"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA A40",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "AMPERE_48",
-    "price": {
-     "community": 0.35,
-     "secure": 0.59,
-     "serverless": 1.22
+    {
+     "id": "NVIDIA A40",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "AMPERE_48",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.35,
+      "secure": 0.59,
+      "serverless": 1.22
+     },
+     "availability": "HIGH"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA B200",
-    "manufacturer": "NVIDIA",
-    "memory": 180,
-    "pool": "BLACKWELL_180",
-    "price": {
-     "community": 5.98,
-     "secure": 7.99,
-     "serverless": 8.64
+    {
+     "id": "NVIDIA B200",
+     "manufacturer": "NVIDIA",
+     "memory": 180,
+     "pool": "BLACKWELL_180",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 5.98,
+      "secure": 7.99,
+      "serverless": 8.64
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA B300 SXM6 AC",
-    "manufacturer": "NVIDIA",
-    "memory": 288,
-    "pool": "BLACKWELL_288",
-    "price": {
-     "community": 6.94,
-     "secure": 8.99,
-     "serverless": 10.65
+    {
+     "id": "NVIDIA B300 SXM6 AC",
+     "manufacturer": "NVIDIA",
+     "memory": 288,
+     "pool": "BLACKWELL_288",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 6.94,
+      "secure": 8.99,
+      "serverless": 10.65
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 3070",
-    "manufacturer": "NVIDIA",
-    "memory": 8,
-    "pool": null,
-    "price": {
-     "community": 0.13,
-     "secure": 0
+    {
+     "id": "NVIDIA GeForce RTX 3070",
+     "manufacturer": "NVIDIA",
+     "memory": 8,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.13,
+      "secure": 0
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 3080",
-    "manufacturer": "NVIDIA",
-    "memory": 10,
-    "pool": null,
-    "price": {
-     "community": 0.17,
-     "secure": 0
+    {
+     "id": "NVIDIA GeForce RTX 3080",
+     "manufacturer": "NVIDIA",
+     "memory": 10,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.17,
+      "secure": 0
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 3080 Ti",
-    "manufacturer": "NVIDIA",
-    "memory": 12,
-    "pool": null,
-    "price": {
-     "community": 0.18,
-     "secure": 0
+    {
+     "id": "NVIDIA GeForce RTX 3080 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 12,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.18,
+      "secure": 0
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 3090",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": "AMPERE_24",
-    "price": {
-     "community": 0.22,
-     "secure": 0.5,
-     "serverless": 0.69
+    {
+     "id": "NVIDIA GeForce RTX 3090",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.22,
+      "secure": 0.5,
+      "serverless": 0.69
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 3090 Ti",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": null,
-    "price": {
-     "community": 0.27,
-     "secure": 0.46
+    {
+     "id": "NVIDIA GeForce RTX 3090 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.27,
+      "secure": 0.46
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 4070 Ti",
-    "manufacturer": "NVIDIA",
-    "memory": 12,
-    "pool": null,
-    "price": {
-     "community": 0.19,
-     "secure": 0.5
+    {
+     "id": "NVIDIA GeForce RTX 4070 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 12,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0.5
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 4080",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": null,
-    "price": {
-     "community": 0.27,
-     "secure": 0.5
+    {
+     "id": "NVIDIA GeForce RTX 4080",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.27,
+      "secure": 0.5
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 4080 SUPER",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": null,
-    "price": {
-     "community": 0.28,
-     "secure": 0.5
+    {
+     "id": "NVIDIA GeForce RTX 4080 SUPER",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.28,
+      "secure": 0.5
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 4090",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": "ADA_24",
-    "price": {
-     "community": 0.34,
-     "secure": 0.89,
-     "serverless": 1.1
+    {
+     "id": "NVIDIA GeForce RTX 4090",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "ADA_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.34,
+      "secure": 0.89,
+      "serverless": 1.1
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 5080",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": null,
-    "price": {
-     "community": 0.39,
-     "secure": 0.59
+    {
+     "id": "NVIDIA GeForce RTX 5080",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.39,
+      "secure": 0.59
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA GeForce RTX 5090",
-    "manufacturer": "NVIDIA",
-    "memory": 32,
-    "pool": "ADA_32_PRO",
-    "price": {
-     "community": 0.69,
-     "secure": 1.19,
-     "serverless": 1.58
+    {
+     "id": "NVIDIA GeForce RTX 5090",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": "ADA_32_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.69,
+      "secure": 1.19,
+      "serverless": 1.58
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA H100 80GB HBM3",
-    "manufacturer": "NVIDIA",
-    "memory": 80,
-    "pool": "ADA_80_PRO",
-    "price": {
-     "community": 2.69,
-     "secure": 3.99,
-     "serverless": 4.79
+    {
+     "id": "NVIDIA H100 80GB HBM3",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 2.69,
+      "secure": 3.99,
+      "serverless": 4.79
+     },
+     "availability": "MEDIUM"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA H100 NVL",
-    "manufacturer": "NVIDIA",
-    "memory": 94,
-    "pool": "ADA_80_PRO",
-    "price": {
-     "community": 2.59,
-     "secure": 3.19,
-     "serverless": 4.79
+    {
+     "id": "NVIDIA H100 NVL",
+     "manufacturer": "NVIDIA",
+     "memory": 94,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 2.59,
+      "secure": 3.19,
+      "serverless": 4.79
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA H100 PCIe",
-    "manufacturer": "NVIDIA",
-    "memory": 80,
-    "pool": "ADA_80_PRO",
-    "price": {
-     "community": 1.99,
-     "secure": 2.89,
-     "serverless": 4.79
+    {
+     "id": "NVIDIA H100 PCIe",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.99,
+      "secure": 2.89,
+      "serverless": 4.79
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA H200",
-    "manufacturer": "NVIDIA",
-    "memory": 141,
-    "pool": "HOPPER_141",
-    "price": {
-     "community": 3.59,
-     "secure": 5.29,
-     "serverless": 5.93
+    {
+     "id": "NVIDIA H200",
+     "manufacturer": "NVIDIA",
+     "memory": 141,
+     "pool": "HOPPER_141",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 3.59,
+      "secure": 5.29,
+      "serverless": 5.93
+     },
+     "availability": "MEDIUM"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA H200 NVL",
-    "manufacturer": "NVIDIA",
-    "memory": 143,
-    "pool": null,
-    "price": {
-     "community": 0.5,
-     "secure": 3.79
+    {
+     "id": "NVIDIA H200 NVL",
+     "manufacturer": "NVIDIA",
+     "memory": 143,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 3.79
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA L4",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": "AMPERE_24",
-    "price": {
-     "community": 0.44,
-     "secure": 0.59,
-     "serverless": 0.69
+    {
+     "id": "NVIDIA L4",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.44,
+      "secure": 0.59,
+      "serverless": 0.69
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA L40",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "ADA_48_PRO",
-    "price": {
-     "community": 0.69,
-     "secure": 0.82,
-     "serverless": 1.75
+    {
+     "id": "NVIDIA L40",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.69,
+      "secure": 0.82,
+      "serverless": 1.75
+     },
+     "availability": "NONE"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA L40S",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "ADA_48_PRO",
-    "price": {
-     "community": 0.79,
-     "secure": 1.09,
-     "serverless": 1.75
+    {
+     "id": "NVIDIA L40S",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.79,
+      "secure": 1.09,
+      "serverless": 1.75
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX 2000 Ada Generation",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": "AMPERE_16",
-    "price": {
-     "community": 0.5,
-     "secure": 0.24,
-     "serverless": 0.58
+    {
+     "id": "NVIDIA RTX 2000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.24,
+      "serverless": 0.58
+     },
+     "availability": "LOW"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX 4000 Ada Generation",
-    "manufacturer": "NVIDIA",
-    "memory": 20,
-    "pool": "AMPERE_16",
-    "price": {
-     "community": 0.2,
-     "secure": 0.28,
-     "serverless": 0.58
+    {
+     "id": "NVIDIA RTX 4000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.2,
+      "secure": 0.28,
+      "serverless": 0.58
+     },
+     "availability": "LOW"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX 4000 SFF Ada Generation",
-    "manufacturer": "NVIDIA",
-    "memory": 20,
-    "pool": null,
-    "price": {
-     "community": 0.18,
-     "secure": 0.44
+    {
+     "id": "NVIDIA RTX 4000 SFF Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.18,
+      "secure": 0.44
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX 5000 Ada Generation",
-    "manufacturer": "NVIDIA",
-    "memory": 32,
-    "pool": null,
-    "price": {
-     "community": 0.49,
-     "secure": 0.83
+    {
+     "id": "NVIDIA RTX 5000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.49,
+      "secure": 0.83
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX 6000 Ada Generation",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "ADA_48_PRO",
-    "price": {
-     "community": 0.74,
-     "secure": 0.99,
-     "serverless": 1.75
+    {
+     "id": "NVIDIA RTX 6000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.74,
+      "secure": 0.99,
+      "serverless": 1.75
+     },
+     "availability": "LOW"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX A2000",
-    "manufacturer": "NVIDIA",
-    "memory": 6,
-    "pool": null,
-    "price": {
-     "community": 0.12,
-     "secure": 0.5
+    {
+     "id": "NVIDIA RTX A2000",
+     "manufacturer": "NVIDIA",
+     "memory": 6,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.12,
+      "secure": 0.5
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX A4000",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": "AMPERE_16",
-    "price": {
-     "community": 0.17,
-     "secure": 0.25,
-     "serverless": 0.58
+    {
+     "id": "NVIDIA RTX A4000",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.17,
+      "secure": 0.25,
+      "serverless": 0.58
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX A4500",
-    "manufacturer": "NVIDIA",
-    "memory": 20,
-    "pool": "AMPERE_16",
-    "price": {
-     "community": 0.19,
-     "secure": 0.25,
-     "serverless": 0.58
+    {
+     "id": "NVIDIA RTX A4500",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0.25,
+      "serverless": 0.58
+     },
+     "availability": "NONE"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX A5000",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": "AMPERE_24",
-    "price": {
-     "community": 0.16,
-     "secure": 0.27,
-     "serverless": 0.69
+    {
+     "id": "NVIDIA RTX A5000",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.16,
+      "secure": 0.27,
+      "serverless": 0.69
+     },
+     "availability": "NONE"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX A6000",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "AMPERE_48",
-    "price": {
-     "community": 0.33,
-     "secure": 0.59,
-     "serverless": 1.22
+    {
+     "id": "NVIDIA RTX A6000",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "AMPERE_48",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.33,
+      "secure": 0.59,
+      "serverless": 1.22
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 4000 Blackwell",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": null,
-    "price": {
-     "community": 0.5,
-     "secure": 0.57
+    {
+     "id": "NVIDIA RTX PRO 4000 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.57
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 4500 Blackwell",
-    "manufacturer": "NVIDIA",
-    "memory": 32,
-    "pool": "BLACKWELL_32",
-    "price": {
-     "community": 0.34,
-     "secure": 0.72,
-     "serverless": 1.15
+    {
+     "id": "NVIDIA RTX PRO 4500 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": "BLACKWELL_32",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.34,
+      "secure": 0.72,
+      "serverless": 1.15
+     },
+     "availability": "MEDIUM"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX PRO 4500 Blackwell Server Edition",
-    "manufacturer": "NVIDIA",
-    "memory": 32,
-    "pool": null,
-    "price": {
-     "community": 0.5,
-     "secure": 0.72
+    {
+     "id": "NVIDIA RTX PRO 4500 Blackwell Server Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.72
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 5000 Blackwell",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": null,
-    "price": {
-     "community": 0.82,
-     "secure": 0.96
+    {
+     "id": "NVIDIA RTX PRO 5000 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": null,
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.82,
+      "secure": 0.96
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
-    "manufacturer": "NVIDIA",
-    "memory": 96,
-    "pool": "BLACKWELL_96",
-    "price": {
-     "community": 1.64,
-     "secure": 0.5,
-     "serverless": 3.49
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 1.64,
+      "secure": 0.5,
+      "serverless": 3.49
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
-    "manufacturer": "NVIDIA",
-    "memory": 96,
-    "pool": "BLACKWELL_96",
-    "price": {
-     "community": 1.69,
-     "secure": 2.49,
-     "serverless": 3.49
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.69,
+      "secure": 2.49,
+      "serverless": 3.49
+     },
+     "availability": "HIGH"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
-    "manufacturer": "NVIDIA",
-    "memory": 24,
-    "pool": "AMPERE_24",
-    "price": {
-     "community": 0.5,
-     "secure": 0.69,
-     "serverless": 0.69
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.69,
+      "serverless": 0.69
+     },
+     "availability": "MEDIUM"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
-    "manufacturer": "NVIDIA",
-    "memory": 48,
-    "pool": "ADA_48_PRO",
-    "price": {
-     "community": 1,
-     "secure": 1.29,
-     "serverless": 1.75
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 1,
+      "secure": 1.29,
+      "serverless": 1.75
+     },
+     "availability": "LOW"
     },
-    "availability": "LOW"
-   },
-   {
-    "id": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
-    "manufacturer": "NVIDIA",
-    "memory": 96,
-    "pool": "BLACKWELL_96",
-    "price": {
-     "community": 1.69,
-     "secure": 2.59,
-     "serverless": 3.49
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.69,
+      "secure": 2.59,
+      "serverless": 3.49
+     },
+     "availability": "LOW"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "Tesla V100-PCIE-16GB",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": null,
-    "price": {
-     "community": 0.19,
-     "secure": 0
+    {
+     "id": "Tesla V100-PCIE-16GB",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   },
-   {
-    "id": "Tesla V100-SXM2-16GB",
-    "manufacturer": "NVIDIA",
-    "memory": 16,
-    "pool": null,
-    "price": {
-     "community": 0.23,
-     "secure": 0
+    {
+     "id": "Tesla V100-SXM2-16GB",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.23,
+      "secure": 0
+     },
+     "availability": "NONE"
+    }
+   ]
+  },
+  "COMMUNITY": {
+   "gpus": [
+    {
+     "id": "NVIDIA A100 80GB PCIe",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "AMPERE_80",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.19,
+      "secure": 1.79,
+      "serverless": 2.72
+     },
+     "availability": "NONE"
     },
-    "availability": "NONE"
-   }
-  ]
+    {
+     "id": "NVIDIA A100-SXM4-40GB",
+     "manufacturer": "NVIDIA",
+     "memory": 40,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 1,
+      "secure": 0
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA A100-SXM4-80GB",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "AMPERE_80",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.39,
+      "secure": 1.79,
+      "serverless": 2.72
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA A40",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "AMPERE_48",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.35,
+      "secure": 0.59,
+      "serverless": 1.22
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA B200",
+     "manufacturer": "NVIDIA",
+     "memory": 180,
+     "pool": "BLACKWELL_180",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 5.98,
+      "secure": 7.99,
+      "serverless": 8.64
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA B300 SXM6 AC",
+     "manufacturer": "NVIDIA",
+     "memory": 288,
+     "pool": "BLACKWELL_288",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 6.94,
+      "secure": 8.99,
+      "serverless": 10.65
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 3070",
+     "manufacturer": "NVIDIA",
+     "memory": 8,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.13,
+      "secure": 0
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 3080",
+     "manufacturer": "NVIDIA",
+     "memory": 10,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.17,
+      "secure": 0
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 3080 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 12,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.18,
+      "secure": 0
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 3090",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.22,
+      "secure": 0.5,
+      "serverless": 0.69
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 3090 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.27,
+      "secure": 0.46
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 4070 Ti",
+     "manufacturer": "NVIDIA",
+     "memory": 12,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0.5
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 4080",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.27,
+      "secure": 0.5
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 4080 SUPER",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.28,
+      "secure": 0.5
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 4090",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "ADA_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.34,
+      "secure": 0.89,
+      "serverless": 1.1
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 5080",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.39,
+      "secure": 0.59
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA GeForce RTX 5090",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": "ADA_32_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.69,
+      "secure": 1.19,
+      "serverless": 1.58
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA H100 80GB HBM3",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 2.69,
+      "secure": 3.99,
+      "serverless": 4.79
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA H100 NVL",
+     "manufacturer": "NVIDIA",
+     "memory": 94,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 2.59,
+      "secure": 3.19,
+      "serverless": 4.79
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA H100 PCIe",
+     "manufacturer": "NVIDIA",
+     "memory": 80,
+     "pool": "ADA_80_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.99,
+      "secure": 2.89,
+      "serverless": 4.79
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA H200",
+     "manufacturer": "NVIDIA",
+     "memory": 141,
+     "pool": "HOPPER_141",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 3.59,
+      "secure": 5.29,
+      "serverless": 5.93
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA H200 NVL",
+     "manufacturer": "NVIDIA",
+     "memory": 143,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 3.79
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA L4",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.44,
+      "secure": 0.59,
+      "serverless": 0.69
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA L40",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.69,
+      "secure": 0.82,
+      "serverless": 1.75
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA L40S",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.79,
+      "secure": 1.09,
+      "serverless": 1.75
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX 2000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.24,
+      "serverless": 0.58
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX 4000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.2,
+      "secure": 0.28,
+      "serverless": 0.58
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX 4000 SFF Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.18,
+      "secure": 0.44
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX 5000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.49,
+      "secure": 0.83
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX 6000 Ada Generation",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.74,
+      "secure": 0.99,
+      "serverless": 1.75
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX A2000",
+     "manufacturer": "NVIDIA",
+     "memory": 6,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.12,
+      "secure": 0.5
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX A4000",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.17,
+      "secure": 0.25,
+      "serverless": 0.58
+     },
+     "availability": "LOW"
+    },
+    {
+     "id": "NVIDIA RTX A4500",
+     "manufacturer": "NVIDIA",
+     "memory": 20,
+     "pool": "AMPERE_16",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0.25,
+      "serverless": 0.58
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX A5000",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.16,
+      "secure": 0.27,
+      "serverless": 0.69
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX A6000",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "AMPERE_48",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.33,
+      "secure": 0.59,
+      "serverless": 1.22
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 4000 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.57
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 4500 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": "BLACKWELL_32",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.34,
+      "secure": 0.72,
+      "serverless": 1.15
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 4500 Blackwell Server Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 32,
+     "pool": null,
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.72
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 5000 Blackwell",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": null,
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 0.82,
+      "secure": 0.96
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 1.64,
+      "secure": 0.5,
+      "serverless": 3.49
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.69,
+      "secure": 2.49,
+      "serverless": 3.49
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
+     "manufacturer": "NVIDIA",
+     "memory": 24,
+     "pool": "AMPERE_24",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 0.5,
+      "secure": 0.69,
+      "serverless": 0.69
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 2g.48gb",
+     "manufacturer": "NVIDIA",
+     "memory": 48,
+     "pool": "ADA_48_PRO",
+     "secure": true,
+     "community": false,
+     "price": {
+      "community": 1,
+      "secure": 1.29,
+      "serverless": 1.75
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+     "manufacturer": "NVIDIA",
+     "memory": 96,
+     "pool": "BLACKWELL_96",
+     "secure": true,
+     "community": true,
+     "price": {
+      "community": 1.69,
+      "secure": 2.59,
+      "serverless": 3.49
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "Tesla V100-PCIE-16GB",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.19,
+      "secure": 0
+     },
+     "availability": "NONE"
+    },
+    {
+     "id": "Tesla V100-SXM2-16GB",
+     "manufacturer": "NVIDIA",
+     "memory": 16,
+     "pool": null,
+     "secure": false,
+     "community": true,
+     "price": {
+      "community": 0.23,
+      "secure": 0
+     },
+     "availability": "NONE"
+    }
+   ]
+  }
  },
  "huggingface": {
   "Qwen/Qwen3.8-27B": {

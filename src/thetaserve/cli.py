@@ -1,7 +1,6 @@
 """Command-line interface."""
 
 import json
-import math
 import os
 import re
 import sys
@@ -81,6 +80,11 @@ class Shell(StrEnum):
     cmd = "cmd"
 
 
+class Cloud(StrEnum):
+    secure = "SECURE"  # Runpod-owned data-centre hardware
+    community = "COMMUNITY"  # community-hosted hardware
+
+
 def _fail(message: str, code: int = 1) -> NoReturn:
     err.print(f"[red]error:[/red] {escape(message)}", highlight=False)
     raise typer.Exit(code)
@@ -100,6 +104,13 @@ def _errors() -> Iterator[None]:
 def _catalog() -> Catalog:
     with _errors():
         return load_catalog()
+
+
+def _with_cloud(catalog: Catalog, cloud: Cloud) -> Catalog:
+    """Switch the Runpod cloud tier for this run without touching the catalog files."""
+    runpod = catalog.providers.runpod.model_copy(update={"cloud_type": cloud.value})
+    providers = catalog.providers.model_copy(update={"runpod": runpod})
+    return catalog.model_copy(update={"providers": providers})
 
 
 def parse_duration(value: str) -> int:
@@ -211,6 +222,14 @@ def up(
     min_precision: Annotated[
         Precision | None, typer.Option(help="Lowest weight precision; overrides the use case.")
     ] = None,
+    cloud: Annotated[
+        Cloud | None,
+        typer.Option(
+            "--cloud",
+            case_sensitive=False,
+            help="Runpod cloud tier; default secure, or cloud_type in providers.yaml.",
+        ),
+    ] = None,
     port: Annotated[int, typer.Option(min=1, max=65535, help="Port vLLM listens on.")] = 8000,
     context: Annotated[
         int | None, typer.Option(min=1, help="Context length in tokens; overrides --use.")
@@ -241,6 +260,8 @@ def up(
     and asks which to launch.
     """
     catalog = _catalog()
+    if cloud is not None:
+        catalog = _with_cloud(catalog, cloud)
     with _errors():
         adapter = get_provider(provider, catalog)
         spec = _pick(
@@ -361,6 +382,11 @@ def _pick(
             _STOCK[o.gpu.stock],
         )
     out.print(table)
+    if catalog.providers.runpod.network_volume and not adapter.volume:
+        err.print(
+            "[yellow]Community Cloud pods cannot mount a network volume: no weights cache, so "
+            "every start downloads the weights.[/yellow]"
+        )
     out.print(
         f"memory = weights + KV cache for one {found[0].context:,}-token sequence + "
         f"{DEFAULT_OVERHEAD_GB:g} GiB overhead, of VRAM x "
@@ -513,6 +539,14 @@ def bench_(
     precision: Annotated[
         Precision | None, typer.Option(help="Weight precision; default the recommended one.")
     ] = None,
+    cloud: Annotated[
+        Cloud | None,
+        typer.Option(
+            "--cloud",
+            case_sensitive=False,
+            help="Runpod cloud tier; default secure, or cloud_type in providers.yaml.",
+        ),
+    ] = None,
     context: Annotated[int | None, typer.Option(min=1, help="Context length in tokens.")] = None,
     kv_cache_dtype: Annotated[KvDtype | None, typer.Option(help="KV-cache dtype.")] = None,
     out_dir: Annotated[Path, typer.Option("--out", help="Results directory.")] = Path("results"),
@@ -522,6 +556,8 @@ def bench_(
     """Launch the recommended option on one GPU, run the fixed workload, write one JSON result,
     then remove the deployment (DESIGN.md section 10)."""
     catalog = _catalog()
+    if cloud is not None:
+        catalog = _with_cloud(catalog, cloud)
     with _errors():
         spec = _pick(
             catalog,
@@ -544,14 +580,9 @@ def bench_(
             dry_run=False,
         )
         spec = spec.model_copy(update={"name": f"bench-{spec.name}-{spec.weights}"})
-        # No cache volume, so the pod can go to any data centre with the GPU; the weights go on
-        # the container disk, sized to hold them (BF16 27B is 52 GiB) with room to spare.
-        disk_gb = max(
-            catalog.providers.runpod.container_disk_gb, math.ceil(spec.fit.weights_gb * 1.3) + 10
-        )
-        runpod = catalog.providers.runpod.model_copy(
-            update={"network_volume": None, "container_disk_gb": disk_gb}
-        )
+        # No cache volume, so the pod can go to any data centre with the GPU; the adapter sizes
+        # the container disk to hold the weights.
+        runpod = catalog.providers.runpod.model_copy(update={"network_volume": None})
         catalog = catalog.model_copy(
             update={"providers": catalog.providers.model_copy(update={"runpod": runpod})}
         )

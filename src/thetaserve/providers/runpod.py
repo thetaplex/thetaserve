@@ -1,6 +1,7 @@
 """Runpod adapter, against the Runpod REST API v2 (https://api.runpod.io/v2/openapi.json)."""
 
 import json
+import math
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -22,6 +23,10 @@ HF_HOME = f"{VOLUME_PATH}/huggingface"
 VLLM_CACHE_ROOT = f"{VOLUME_PATH}/vllm"
 MASK = "****"
 POLL_S = 5.0
+# vllm/vllm-openai:v0.32.0 is built on CUDA 13.0 with forward compatibility off, so it fails on a
+# host whose driver supports only CUDA 12.x (a Community Cloud A5000 with 12.4, 2026-10-28).
+# ponytail: one floor for the pinned image; derive it from the image if users pin others.
+MIN_CUDA = "13.0"
 _AVAILABILITY_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
 _FAILED = {"ERROR", "TERMINATED", "EXITED"}
 _POOL_ARCH: dict[str, Arch] = {
@@ -48,7 +53,7 @@ class RunPod:
     # -- no network ---------------------------------------------------------------------
 
     def plan(self, spec: LaunchSpec) -> dict[str, Any]:
-        if not self.cfg.network_volume:
+        if not self.volume:
             return self._body(spec, env=dict.fromkeys(spec.secret_env, MASK))
         return self._body(
             spec,
@@ -64,7 +69,7 @@ class RunPod:
 
     def create(self, spec: LaunchSpec, secrets: Mapping[str, str]) -> Deployment:
         volume_id = data_center = None
-        if self.cfg.network_volume:
+        if self.volume:
             volume_id, data_center = self._ensure_volume(_gpu_id(spec))
         body = self._body(spec, env=dict(secrets), volume_id=volume_id, data_center=data_center)
         pod = self._request("POST", "/v2/pods", json=body).json()
@@ -146,9 +151,19 @@ class RunPod:
         listing: dict[str, Any] = self._request(
             "GET",
             "/v2/catalog/gpus",
-            params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
+            params={
+                "include": "AVAILABILITY",
+                "product": "POD",
+                "cloud": self.cfg.cloud_type,
+                "minCudaVersion": MIN_CUDA,
+            },
         ).json()
         return listing
+
+    @property
+    def volume(self) -> str | None:
+        """The cache volume name, or None. Network volumes attach only to Secure Cloud pods."""
+        return self.cfg.network_volume if self.cfg.cloud_type == "SECURE" else None
 
     @property
     def has_key(self) -> bool:
@@ -177,9 +192,9 @@ class RunPod:
             "cmd": [spec.script()],
             "env": env,
             "ports": [f"{spec.port}/http"],
-            "disk": self.cfg.container_disk_gb,
+            "disk": self.cfg.container_disk_gb if volume_id else _disk_for_weights(spec, self.cfg),
             "cloud": self.cfg.cloud_type,
-            "gpu": {"id": _gpu_id(spec), "count": 1},
+            "gpu": {"id": _gpu_id(spec), "count": 1, "minCudaVersion": MIN_CUDA},
         }
         if volume_id:
             body["env"] = {"HF_HOME": HF_HOME, "VLLM_CACHE_ROOT": VLLM_CACHE_ROOT, **env}
@@ -221,7 +236,12 @@ class RunPod:
         gpu = self._request(
             "GET",
             f"/v2/catalog/gpus/{quote(gpu_id, safe='')}",
-            params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
+            params={
+                "include": "AVAILABILITY",
+                "product": "POD",
+                "cloud": self.cfg.cloud_type,
+                "minCudaVersion": MIN_CUDA,
+            },
         ).json()
         return {
             dc["id"]: _AVAILABILITY_RANK.get(dc.get("availability", "NONE"), 0)
@@ -284,14 +304,22 @@ def _arch(gpu: dict[str, Any]) -> Arch | None:
 
 
 def parse_gpus(listing: dict[str, Any], cloud_type: str) -> list[Gpu]:
+    """GPU types this cloud offers; `secure` and `community` flag which cloud has each type."""
+    cloud = cloud_type.lower()
     found = []
     for g in listing["gpus"]:
-        price = (g.get("price") or {}).get(cloud_type.lower())
+        price = (g.get("price") or {}).get(cloud)
         arch = _arch(g)
-        if g.get("manufacturer") == "NVIDIA" and price and arch and g.get("memory"):
+        offered = g.get("manufacturer") == "NVIDIA" and g.get(cloud) and g.get("memory")
+        if offered and price and arch:
             stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
             found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
     return found
+
+
+def _disk_for_weights(spec: LaunchSpec, cfg: RunPodConfig) -> int:
+    """Container disk without a cache volume: the weights go on it (BF16 27B is 52 GiB)."""
+    return max(cfg.container_disk_gb, math.ceil(spec.fit.weights_gb * 1.3) + 10)
 
 
 def _gpu_id(spec: LaunchSpec) -> str:
