@@ -1,8 +1,23 @@
 # Launch on Runpod serverless
 
 A serverless endpoint costs nothing while no request comes. A request starts a worker; the
-worker stops after `--idle` without requests. Use it for occasional use. For long sessions, a
-pod (`--provider runpod`) has no cold starts.
+worker stops after `--idle` without requests.
+
+The hourly rate is higher than for a pod: on 2026-10-28, 1.2 to 2.3 times the Secure Cloud
+pod rate for the same GPU (48 GB: $1.22/h, a Secure A40 pod $0.59/h). Runpod bills the worker
+per second, from its start until it stops: the model load, the requests and `--idle`.
+Serverless costs less than a pod when the worker runs for less than about half of the time
+that a pod would run. Use it for short tasks with long gaps between them. For a long
+session, use a pod (`--provider runpod`): it costs less and has no cold starts.
+
+Before you use it with an agent, know these limits:
+
+- After a gap longer than `--idle`, the first request waits for a cold start (minutes for a
+  27B model). Runpod ends a request that waits more than 2 minutes for a worker. Configure
+  your client to retry.
+- Runpod ends a request that runs more than 5.5 minutes. Stream long generations.
+- A new worker has an empty prefix cache, so the first request of a long agent context is
+  slower.
 
 This provider has not yet been run on real hardware (`docs/DESIGN.md` section 8.3).
 
