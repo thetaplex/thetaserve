@@ -153,30 +153,26 @@ def main(
 @app.command()
 def setup() -> None:
     """Store provider credentials and a Hugging Face token."""
-    catalog = _catalog()
-    env = catalog.providers.runpod.api_key_env
-    if os.environ.get(env):
-        out.print(f"Runpod API key: using ${env} from the environment.")
-    else:
-        existing = secrets.get(RUNPOD_SECRET)
-        hint = " (Enter keeps the stored one)" if existing else ""
-        key = typer.prompt(f"Runpod API key{hint}", default="", hide_input=True, show_default=False)
-        if key:
-            _stored("Runpod API key", secrets.put(RUNPOD_SECRET, key))
-        elif not existing:
-            out.print(f"[yellow]No Runpod key stored; set ${env} or run setup again.[/yellow]")
+    _credential("Runpod API key", RUNPOD_SECRET, _catalog().providers.runpod.api_key_env)
+    _credential("Hugging Face token", HF_SECRET, HF_ENV, optional=True)
 
-    if os.environ.get(HF_ENV):
-        out.print(f"Hugging Face token: using ${HF_ENV} from the environment.")
-    else:
-        token = typer.prompt(
-            "Hugging Face token (optional, Enter to skip)",
-            default="",
-            hide_input=True,
-            show_default=False,
-        )
-        if token:
-            _stored("Hugging Face token", secrets.put(HF_SECRET, token))
+
+def _credential(what: str, name: str, env: str, *, optional: bool = False) -> None:
+    """Use the env value if set; otherwise prompt and store it. Enter keeps a stored one."""
+    if os.environ.get(env):
+        out.print(f"{what}: using ${env} from the environment.")
+        return
+    existing = secrets.get(name)
+    prompt = what
+    if existing:
+        prompt += " (Enter keeps the stored one)"
+    elif optional:
+        prompt += " (optional, Enter to skip)"
+    value = typer.prompt(prompt, default="", hide_input=True, show_default=False)
+    if value:
+        _stored(what, secrets.put(name, value))
+    elif not existing and not optional:
+        out.print(f"[yellow]No {what} stored; set ${env} or run setup again.[/yellow]")
 
 
 def _stored(what: str, where: secrets.Store) -> None:
