@@ -55,7 +55,7 @@ in: `RedHatAI`, `nvidia`. `up --any-publisher` also lists other publishers.
 
 ## samples.json
 
-Built in only. A dated sample of the Runpod GPU catalogue for each cloud tier (NVIDIA GPUs only) and of the
+Built in only. A dated sample of the Runpod GPU catalogue for Secure Cloud, Community Cloud and serverless (NVIDIA GPUs only) and of the
 Hugging Face data of each built-in model, trusted publishers only. `up --dry-run` uses it when no Runpod key is
 available. `just samples` fetches it again.
 

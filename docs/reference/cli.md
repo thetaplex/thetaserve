@@ -8,8 +8,9 @@ Durations (`--idle`, `--max-life`) use the units `s`, `m` and `h`, for example `
 
 ## setup
 
-Stores the Runpod API key and an optional Hugging Face token. Skips a prompt when
-`RUNPOD_API_KEY` or `HF_TOKEN` is set. Needs an interactive terminal.
+Stores the Runpod API key, an optional Hugging Face token and an optional Runpod client key
+for `runpod-serverless`. Skips a prompt when `RUNPOD_API_KEY`, `HF_TOKEN` or
+`RUNPOD_CLIENT_KEY` is set. Needs an interactive terminal.
 
 ## list
 

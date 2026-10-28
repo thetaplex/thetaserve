@@ -243,6 +243,7 @@ def test_lifecycle_through_the_cli(
 ) -> None:
     (user_dir / "models.yaml").write_text("vllm_image: vllm/vllm-openai:v0.32.0\n")
     monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
+    monkeypatch.setenv("RUNPOD_CLIENT_KEY", "rp-client")
     hub.get(f"{API_URL}/v2/catalog/gpus", name="gpus").respond(json=LISTING)
     hub.get(f"{API_URL}/v2/catalog/gpus/{GPU}").respond(json=LISTING["gpus"][0])
     create = hub.post(f"{API_URL}/v2/serverless").respond(201, json=_endpoint())
@@ -258,23 +259,50 @@ def test_lifecycle_through_the_cli(
     result = runner.invoke(app, [*UP, "--yes"])
     assert result.exit_code == 0, result.output
     assert "$0.85/h while a worker runs" in result.output
-    assert "restricted key" in result.output
     assert f"serving at {BASE}/v1" in result.output
 
-    # Clients and the readiness poll use the Runpod key; no vLLM key is made or sent.
+    # Clients and the readiness poll use the restricted client key, never the account key;
+    # no vLLM key is made or sent.
     assert "VLLM_API_KEY" not in json.loads(create.calls.last.request.content)["env"]
-    assert models.calls.last.request.headers["Authorization"] == "Bearer rp-key"
-    assert "rp-key" not in state.path().read_text(encoding="utf-8")
+    assert models.calls.last.request.headers["Authorization"] == "Bearer rp-client"
+    assert "rp-client" not in state.path().read_text(encoding="utf-8")
     d = state.load().deployments["dev"]
-    assert secrets.get(d.secret_name) == "rp-key"
+    assert secrets.get(d.secret_name) == "rp-client"
 
     result = runner.invoke(app, ["env", "--shell", "posix"])
     assert result.stdout.splitlines() == [
         f"export OPENAI_BASE_URL='{BASE}/v1'",
-        "export OPENAI_API_KEY='rp-key'",
+        "export OPENAI_API_KEY='rp-client'",
     ]
 
     result = runner.invoke(app, ["down", "dev", "--yes"])
     assert result.exit_code == 0, result.output
     assert delete.call_count == 1
     assert secrets.get(d.secret_name) is None
+
+
+@pytest.mark.parametrize(
+    ("client_key", "message"),
+    [(None, "needs a client key"), ("rp-key", "the client key is your account key")],
+)
+def test_up_refuses_without_a_separate_client_key(
+    user_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    hub: respx.MockRouter,
+    client_key: str | None,
+    message: str,
+) -> None:
+    (user_dir / "models.yaml").write_text("vllm_image: vllm/vllm-openai:v0.32.0\n")
+    monkeypatch.setenv("RUNPOD_API_KEY", "rp-key")
+    if client_key:
+        monkeypatch.setenv("RUNPOD_CLIENT_KEY", client_key)
+    hub.get(f"{API_URL}/v2/catalog/gpus", name="gpus").respond(json=LISTING)
+    hub.get(f"{API_URL}/v2/catalog/gpus/{GPU}").respond(json=LISTING["gpus"][0])
+    create = hub.post(f"{API_URL}/v2/serverless").respond(201, json=_endpoint())
+
+    result = runner.invoke(app, [*UP, "--yes"], env={"COLUMNS": "200"})
+
+    assert result.exit_code == 1
+    assert message in result.output
+    assert create.call_count == 0  # refused before anything bills
+    assert state.load().deployments == {}

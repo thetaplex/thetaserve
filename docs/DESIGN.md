@@ -214,8 +214,8 @@ the KV cache per token from `config.json` by a measured factor (default 1). Qwen
 
 A dated snapshot of the live data that section 6.1 reads:
 
-- `runpod`: Runpod `GET /v2/catalog/gpus` for each cloud tier (`SECURE`, `COMMUNITY`), because
-  the stock is different for each tier; NVIDIA GPUs and the fields `up` reads only;
+- `runpod`: Runpod `GET /v2/catalog/gpus` for each product (`secure`, `community`, `serverless`),
+  because the stock is different for each; NVIDIA GPUs and the fields `up` reads only;
 - `huggingface`: for each `models.yaml` entry, the model facts and weight variants (with commit
   hashes) that `up` calculated from the Hub.
 
@@ -447,7 +447,7 @@ Not yet run on real hardware. Written against the REST API v2 spec, checked 2026
   `GET /v2/serverless/{id}/workers` (only the workers that are up), `PATCH /v2/serverless/{id}`,
   `DELETE /v2/serverless/{id}`, `GET /v2/serverless/{id}/workers/{workerId}/logs` (Server-Sent
   Events, as for pods).
-- Create body: `gpu {pools: [<pool>], count: 1}`. A pool is every card of one memory size and
+- Create body: `gpu {pools: [<pool>], count: 1, minCudaVersion}` (section 8.1). A pool is every card of one memory size and
   architecture (for example `AMPERE_48`), so the worker can get a sibling of the chosen GPU at
   the same rate. `workers {min: 0, max: 1, idleTimeout: <--idle, at most 3600 s>}`,
   `scaling {type: REQUEST_COUNT, requestCount: 1}`, `flashboot: FLASHBOOT`, and the container
@@ -456,9 +456,13 @@ Not yet run on real hardware. Written against the REST API v2 spec, checked 2026
 - Endpoint: `requestUrls.base` + `/v1`, that is `https://<endpointId>.api.runpod.ai/v1`.
 - Access: Runpod's gateway admits only a Runpod API key in `Authorization`. vLLM's own key
   would need the same header, so vLLM runs without `--api-key` and without the guard
-  (section 9), and clients use a Runpod API key. `up` stores the key it used as the
-  deployment key and tells you to give clients a restricted key instead. The worker has no
-  public port.
+  (section 9), and clients use a Runpod API key. The account key cannot be that key: it
+  creates pods, and its `api.runpod.ai` setting is None (section 4). So clients use a
+  separate client key: Restricted permission, Read/Write on Serverless endpoints, nothing
+  else. `setup` stores it as `runpod-client` (or `RUNPOD_CLIENT_KEY`). `up` refuses to launch
+  without it or when it is the account key, uses it for the readiness poll, and stores it as
+  the deployment key that `env` exports. A key scoped to one endpoint is not used, because the
+  endpoint ID exists only after `up` creates it. The worker has no public port.
 - Health: the load balancer polls `PORT_HEALTH`. 200 is healthy, 204 is initializing, any
   other answer is unhealthy, and an unhealthy worker is removed. vLLM opens its port only
   after the weights load, minutes after the start. So `healthcheck.py` on `<port>+1` answers
@@ -473,8 +477,8 @@ Not yet run on real hardware. Written against the REST API v2 spec, checked 2026
   minutes, so the first request after an idle gap can fail with `no workers available`. Clients
   must retry and stream long generations.
 - Pilot before release: cold start time and the 204 health answer, the gateway passing
-  `/v1/*` through, `IDLE` versus `RUNNING` worker states, and a restricted key that can call
-  only this endpoint.
+  `/v1/*` through, `IDLE` versus `RUNNING` worker states, and that the restricted client key
+  passes the gateway.
 
 ## 9. Security
 
@@ -487,7 +491,7 @@ Not yet run on real hardware. Written against the REST API v2 spec, checked 2026
   `vllm serve --middleware`. It requires the key on every path except `/health`. The watchdog
   (section 15) runs on the host with the key, so it can still read `/metrics`.
 - Runpod serverless: no per-launch key. Runpod's gateway checks a Runpod API key on every
-  request (section 8.3); give clients a restricted key, not the account key.
+  request, so clients get the restricted client key, never the account key (section 8.3).
 - The key is hex, not base64url. A key that starts with `-` makes `vllm serve` read it as an
   option (M1 pilot).
 - Weights: section 5.3.

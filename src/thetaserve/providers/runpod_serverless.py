@@ -20,6 +20,10 @@ MAX_IDLE_S = 3600  # the API's limit for workers.idleTimeout
 class RunPodServerless(RunPod):
     name = NAME
 
+    def __init__(self, *args: Any, client_key: str | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._client_key = client_key
+
     # -- no network ---------------------------------------------------------------------
 
     def plan(self, spec: LaunchSpec) -> dict[str, Any]:
@@ -109,9 +113,23 @@ class RunPodServerless(RunPod):
     def _product(self) -> dict[str, str]:
         return {"product": "SERVERLESS"}
 
-    def client_key(self) -> str | None:
-        """The key clients send. Runpod's gateway accepts only a Runpod API key."""
-        return self._api_key
+    def client_key(self) -> str:
+        """The key clients send. Runpod's gateway accepts only a Runpod API key.
+
+        A separate restricted key, so clients never hold the account key that creates pods.
+        """
+        if not self._client_key:
+            raise ProviderError(
+                "runpod-serverless needs a client key: a Runpod API key with Restricted "
+                "permission and Read/Write on Serverless endpoints only. Run `thetaserve setup` "
+                "or set RUNPOD_CLIENT_KEY (docs/how-to/launch-on-serverless.md)"
+            )
+        if self._client_key == self._api_key:
+            raise ProviderError(
+                "the client key is your account key; create a separate restricted key for "
+                "clients (docs/how-to/launch-on-serverless.md)"
+            )
+        return self._client_key
 
     # -- helpers ------------------------------------------------------------------------
 

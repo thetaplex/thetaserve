@@ -22,7 +22,14 @@ from rich.table import Table
 from thetaserve import __version__, bench, health, options, samples, secrets, state
 from thetaserve._files import write_private
 from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
-from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
+from thetaserve.providers import (
+    RUNPOD_CLIENT_ENV,
+    RUNPOD_CLIENT_SECRET,
+    RUNPOD_SECRET,
+    Provider,
+    ProviderError,
+    get_provider,
+)
 from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import RunPod
 from thetaserve.providers.runpod_serverless import RunPodServerless
@@ -178,6 +185,20 @@ def setup() -> None:
         )
         if token:
             _stored("Hugging Face token", secrets.put(HF_SECRET, token))
+
+    if os.environ.get(RUNPOD_CLIENT_ENV):
+        out.print(f"Runpod client key: using ${RUNPOD_CLIENT_ENV} from the environment.")
+    else:
+        existing = secrets.get(RUNPOD_CLIENT_SECRET)
+        hint = "Enter keeps the stored one" if existing else "Enter to skip"
+        client = typer.prompt(
+            f"Runpod client key for runpod-serverless, restricted ({hint})",
+            default="",
+            hide_input=True,
+            show_default=False,
+        )
+        if client:
+            _stored("Runpod client key", secrets.put(RUNPOD_CLIENT_SECRET, client))
 
 
 def _stored(what: str, where: secrets.Store) -> None:
@@ -477,12 +498,8 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> tuple[Deployment, str]:
             f"A request starts the worker; it stops after {_human(spec.idle_s)} idle."
         )
         # Runpod's gateway admits only a Runpod API key, so clients use it, not a vLLM key.
-        api_key = adapter.client_key() or ""
+        api_key = adapter.client_key()
         env: dict[str, str] = {}
-        err.print(
-            "[yellow]Clients use your Runpod API key. Give them a restricted key that can only "
-            "call this endpoint, not your full account key.[/yellow]"
-        )
     else:
         out.print(
             f"{spec.model} on {spec.provider} {spec.device}: {rate_text}, billed until stopped."

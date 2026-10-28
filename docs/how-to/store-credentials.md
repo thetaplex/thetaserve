@@ -40,7 +40,8 @@ export RUNPOD_API_KEY=...
 export HF_TOKEN=...        # optional
 ```
 
-Environment variables have priority over stored secrets.
+Environment variables have priority over stored secrets. For `runpod-serverless`, the
+client key is `RUNPOD_CLIENT_KEY` ([Launch on Runpod serverless](launch-on-serverless.md)).
 
 ## Revoke
 
