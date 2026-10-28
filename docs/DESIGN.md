@@ -259,8 +259,11 @@ aws:
    Count only full-attention layers per token. Sliding-window layers add a fixed amount.
 3. **Weight variants.** The base repository plus the 40 most downloaded repositories with the
    tag `base_model:quantized:<repo>`. Keep only formats vLLM serves (BF16/FP16, `fp8`, `awq`,
-   `gptq`, `compressed-tensors`, `modelopt`). Drop GGUF and MLX. The weight size is the sum of
-   the `.safetensors` files at the current commit. The Hugging Face token from `setup` opens
+   `gptq`, `compressed-tensors`, `modelopt`, `mxfp4`). Drop GGUF and MLX. The weight size is the
+   sum of the top-level `.safetensors` files at the current commit; copies in subfolders (gpt-oss
+   has `original/`) are not loaded. `mxfp4` (gpt-oss) is offered on every architecture: vLLM
+   runs it on Ampere with Marlin kernels (gpt-oss-120b ran on an A100 80GB, 2026-10-29). On Ada it
+   is unverified. The Hugging Face token from `setup` opens
    gated repositories.
 4. **GPUs.** Read VRAM, price and per-data-centre stock from Runpod
    `GET /v2/catalog/gpus?include=AVAILABILITY&product=POD`. Read the architecture from the pool

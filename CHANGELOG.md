@@ -8,10 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- MXFP4 weights (`quant_method: mxfp4`, gpt-oss), shown as `4-bit mxfp4`. `openai/gpt-oss-120b` now fits one 80 GB GPU.
 - `up --cloud SECURE|COMMUNITY` and `bench --cloud` launch on Runpod Secure Cloud or Community Cloud for one run, with that tier's prices and stock; `cloud_type` in `providers.yaml` stays the default, which is `SECURE`. The value is not case-sensitive.
 
 ### Fixed
 
+- The weight size counts only top-level `.safetensors` files. Before, a copy in a subfolder (gpt-oss `original/`) doubled it.
 - On Community Cloud, `up` launches without the cache volume, which Runpod attaches only to Secure Cloud pods, and says so.
 - `up` and `bench` list only the GPU types that the selected cloud tier offers. Runpod gives a Community price for some Secure-only types, such as the A40, and these showed as Community options. `samples.json` now holds a listing for each tier.
 - Runpod pods and options ask for hosts with CUDA 13.0 or later (`gpu.minCudaVersion`), which the vLLM v0.32.0 image needs. Before, a Community Cloud host with a CUDA 12.4 driver was selected, and vLLM failed at start.
