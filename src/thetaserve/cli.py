@@ -227,7 +227,7 @@ def up(
         typer.Option(
             "--cloud",
             case_sensitive=False,
-            help="Runpod cloud tier; overrides the configured one.",
+            help="Runpod cloud tier; default secure, or cloud_type in providers.yaml.",
         ),
     ] = None,
     port: Annotated[int, typer.Option(min=1, max=65535, help="Port vLLM listens on.")] = 8000,
@@ -544,7 +544,7 @@ def bench_(
         typer.Option(
             "--cloud",
             case_sensitive=False,
-            help="Runpod cloud tier; overrides the configured one.",
+            help="Runpod cloud tier; default secure, or cloud_type in providers.yaml.",
         ),
     ] = None,
     context: Annotated[int | None, typer.Option(min=1, help="Context length in tokens.")] = None,

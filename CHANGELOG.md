@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `up --cloud SECURE|COMMUNITY` and `bench --cloud` launch on Runpod Secure Cloud or Community Cloud for one run, with that tier's prices and stock; `cloud_type` in `providers.yaml` stays the default. The value is not case-sensitive.
+- `up --cloud SECURE|COMMUNITY` and `bench --cloud` launch on Runpod Secure Cloud or Community Cloud for one run, with that tier's prices and stock; `cloud_type` in `providers.yaml` stays the default, which is `SECURE`. The value is not case-sensitive.
 
 ### Fixed
 
