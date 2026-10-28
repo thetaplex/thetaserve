@@ -30,7 +30,7 @@ _VARIANTS = 40  # most-downloaded quantisations of the base model to consider
 @dataclass(frozen=True)
 class Weights:
     repo: str
-    label: str  # bf16, fp8, awq-int4, int4, nvfp4, ...
+    label: str  # bf16, fp8, awq-int4, int4, nvfp4, mxfp4, ...
     bits: int
     gb: float  # GiB of .safetensors files
     blackwell_only: bool = False
@@ -97,10 +97,11 @@ def fetch_model(
                 repos[label],
                 params={"blobs": "true"},
             )
+            # Top level only: vLLM loads those; gpt-oss also ships a copy in original/.
             size = sum(
                 f.get("size", 0)
                 for f in info.get("siblings", [])
-                if f["rfilename"].endswith(".safetensors")
+                if f["rfilename"].endswith(".safetensors") and "/" not in f["rfilename"]
             )
             if size:
                 weights.append(
@@ -149,6 +150,9 @@ def quantization(qc: dict[str, Any] | None) -> tuple[str, int, bool] | None:
     method = qc.get("quant_method")
     if method == "fp8":
         return "fp8", 8, False
+    if method == "mxfp4":  # gpt-oss: MoE experts in MXFP4, the rest BF16
+        # vLLM runs it on Ampere and later (Marlin MXFP4 kernels), not only on Blackwell.
+        return "mxfp4", 4, False
     if method in ("awq", "gptq"):
         bits = int(qc.get("bits", 4))
         return f"{method}-int{bits}", bits, False
