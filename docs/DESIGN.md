@@ -311,7 +311,7 @@ hides most of this for coding agents, because their prompts repeat between steps
 
 ```
 thetaserve setup                       # check and collect provider credentials, HF token, SSH key
-thetaserve up --provider runpod --model qwen3.8-27b [--use coding] [--min-precision 8bit]
+thetaserve up --provider runpod|runpod-serverless --model qwen3.8-27b [--use coding] [--min-precision 8bit]
              [--device "NVIDIA A40"] [--port 8000] [--context N] [--kv-cache-dtype D]
              [--idle 30m] [--max-life 10h] [--name dev] [--dry-run] [--yes]
 thetaserve status [name]               # endpoint, model, uptime, cost so far, idle time
@@ -434,6 +434,48 @@ API key is sufficient. On AWS, an open port needs TLS and certificate management
 gives encryption and IP restriction at no cost, and the instance stays invisible to the
 internet.
 
+### 8.3 Runpod serverless (core, `--provider runpod-serverless`)
+
+Not yet run on real hardware. Written against the REST API v2 spec, checked 2026-10-25.
+
+- Product: one serverless endpoint of type `LOAD_BALANCER`. Requests go straight to vLLM's
+  HTTP server on the worker; there is no job queue. Billing is per second while a worker runs.
+  The rate is `price.serverless` of `GET /v2/catalog/gpus?include=AVAILABILITY&product=SERVERLESS`,
+  USD per GPU-hour, so the options table works as for pods. Same key and `providers.yaml`
+  entry (`runpod`) as pods; `cloud_type` and `network_volume` do not apply.
+- Calls: `POST /v2/serverless` (create), `GET /v2/serverless/{id}` (configuration),
+  `GET /v2/serverless/{id}/workers` (only the workers that are up), `PATCH /v2/serverless/{id}`,
+  `DELETE /v2/serverless/{id}`, `GET /v2/serverless/{id}/workers/{workerId}/logs` (Server-Sent
+  Events, as for pods).
+- Create body: `gpu {pools: [<pool>], count: 1}`. A pool is every card of one memory size and
+  architecture (for example `AMPERE_48`), so the worker can get a sibling of the chosen GPU at
+  the same rate. `workers {min: 0, max: 1, idleTimeout: <--idle, at most 3600 s>}`,
+  `scaling {type: REQUEST_COUNT, requestCount: 1}`, `flashboot: FLASHBOOT`, and the container
+  fields as for pods. No cache volume: the container disk holds the weights (1.3 × weights +
+  10 GB).
+- Endpoint: `requestUrls.base` + `/v1`, that is `https://<endpointId>.api.runpod.ai/v1`.
+- Access: Runpod's gateway admits only a Runpod API key in `Authorization`. vLLM's own key
+  would need the same header, so vLLM runs without `--api-key` and without the guard
+  (section 9), and clients use a Runpod API key. `up` stores the key it used as the
+  deployment key and tells you to give clients a restricted key instead. The worker has no
+  public port.
+- Health: the load balancer polls `PORT_HEALTH`. 200 is healthy, 204 is initializing, any
+  other answer is unhealthy, and an unhealthy worker is removed. vLLM opens its port only
+  after the weights load, minutes after the start. So `healthcheck.py` on `<port>+1` answers
+  204 until vLLM's `/health` answers 200.
+- Lifecycle: `up` creates the endpoint, then its readiness poll (`GET /v1/models` through the
+  gateway) starts the first worker. Status comes from the workers: `RUNNING` (billed),
+  `SCALED_DOWN` (no worker up), `UNHEALTHY`, `STOPPED` (`workers.max` 0). `stop` sets
+  `workers.max` to 0 and `start` sets it to 1. `--max-life` and the watchdog do not apply:
+  Runpod scales an idle worker to zero.
+- Limits from Runpod: a request waits at most 2 min for a worker and runs at most 5.5 min. A
+  request that comes while no worker is up waits for a cold start, which for a 27B model is
+  minutes, so the first request after an idle gap can fail with `no workers available`. Clients
+  must retry and stream long generations.
+- Pilot before release: cold start time and the 204 health answer, the gateway passing
+  `/v1/*` through, `IDLE` versus `RUNNING` worker states, and a restricted key that can call
+  only this endpoint.
+
 ## 9. Security
 
 - A new 32-byte API key for each launch. The secrets store (section 4) holds it, never the
@@ -444,6 +486,8 @@ internet.
   no option to turn them off. The launch script writes `guard.py` to the host and passes it to
   `vllm serve --middleware`. It requires the key on every path except `/health`. The watchdog
   (section 15) runs on the host with the key, so it can still read `/metrics`.
+- Runpod serverless: no per-launch key. Runpod's gateway checks a Runpod API key on every
+  request (section 8.3); give clients a restricted key, not the account key.
 - The key is hex, not base64url. A key that starts with `-` makes `vllm serve` read it as an
   option (M1 pilot).
 - Weights: section 5.3.

@@ -9,6 +9,7 @@ import httpx
 
 from thetaserve.config import Catalog, KvCacheDtype, Preset
 from thetaserve.providers.base import Gpu
+from thetaserve.providers.runpod_serverless import NAME as SERVERLESS
 from thetaserve.spec import (
     API_KEY_ENV,
     DEFAULT_GPU_MEMORY_UTILIZATION,
@@ -262,13 +263,18 @@ def to_spec(
 ) -> LaunchSpec:
     o = option
     device = _slug(o.gpu.id.removeprefix("NVIDIA ").removeprefix("GeForce "))
+    # On Runpod serverless the gateway checks the key and places workers by pool (DESIGN.md 8.3).
+    serverless = provider == SERVERLESS
+    sku = {"gpu_type_id": o.gpu.id}
+    if serverless and o.gpu.pool:
+        sku["gpu_pool"] = o.gpu.pool
     return LaunchSpec(
         name=name or f"{_slug(model.split('/')[-1])}-{device}",
         provider=provider,
         device=o.gpu.id,
         model=model,
         weights=o.weights.label,
-        sku={"gpu_type_id": o.gpu.id},
+        sku=sku,
         image=catalog.vllm_image,
         repo=o.weights.repo,
         port=port,
@@ -282,8 +288,9 @@ def to_spec(
             o.context,
             o.kv_cache_dtype,
             ["--revision", o.weights.revision, *common_args, *extra_args],
+            guarded=not serverless,
         ),
-        secret_env=[API_KEY_ENV],
+        secret_env=[] if serverless else [API_KEY_ENV],
         idle_s=idle_s,
         max_life_s=max_life_s,
         fit=o.fit,

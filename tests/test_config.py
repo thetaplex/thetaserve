@@ -9,7 +9,7 @@ def test_builtin_catalog_loads() -> None:
     catalog = load_catalog()
     assert {"qwen3.8-27b", "gemma4-31b"} <= catalog.models.keys()
     assert {"coding", "chat", "research"} <= catalog.presets.keys()
-    assert catalog.providers.names() == ["runpod", "aws"]
+    assert catalog.providers.names() == ["runpod", "aws", "runpod-serverless"]
 
 
 def test_user_file_replaces_and_adds_entries(user_dir: Path) -> None:

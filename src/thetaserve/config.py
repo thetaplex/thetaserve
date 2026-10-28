@@ -58,7 +58,8 @@ class Providers(_Strict):
     aws: AwsConfig | None = None
 
     def names(self) -> list[str]:
-        return [name for name in type(self).model_fields if getattr(self, name) is not None]
+        names = [name for name in type(self).model_fields if getattr(self, name) is not None]
+        return [*names, "runpod-serverless"]  # Runpod serverless uses the runpod entry
 
 
 class Preset(_Strict):

@@ -124,39 +124,21 @@ class RunPod:
     def logs(self, d: Deployment, follow: bool, tail: int = 100) -> Iterator[str]:
         """Container log lines. Without `follow`, stops once the backlog has been sent."""
         # Runpod has no "backlog done" marker; a few quiet seconds means we have it all.
-        timeout = httpx.Timeout(30.0, read=None if follow else 3.0)
-        params = {"source": "container", "tail": str(tail)}
-        try:
-            with self._http().stream(
-                "GET", f"/v2/pods/{d.provider_id}/logs", params=params, timeout=timeout
-            ) as resp:
-                if not resp.is_success:
-                    resp.read()
-                    _raise(resp)
-                for raw in resp.iter_lines():
-                    if raw.startswith("data:") and (line := _log_line(raw[5:])) is not None:
-                        yield line
-        except httpx.ReadTimeout:
-            if follow:
-                raise
-        except httpx.HTTPError as exc:
-            raise ProviderError(f"Runpod logs request failed: {exc}") from exc
+        return self._sse(f"/v2/pods/{d.provider_id}/logs", follow, tail)
 
-    def gpus(self) -> list[Gpu]:
-        """NVIDIA GPU types offered for one-GPU pods, with this cloud's price and stock."""
-        return parse_gpus(self.gpu_listing(), self.cfg.cloud_type)
+    def gpus(self, listing: dict[str, Any] | None = None) -> list[Gpu]:
+        """NVIDIA GPU types offered for one-GPU pods, with this cloud's price and stock.
+
+        `listing` is a saved `gpu_listing()` (the samples); without it, the live catalogue.
+        """
+        return parse_gpus(listing or self.gpu_listing(), self.price_key)
 
     def gpu_listing(self) -> dict[str, Any]:
         """The raw GPU catalogue for this cloud."""
         listing: dict[str, Any] = self._request(
             "GET",
             "/v2/catalog/gpus",
-            params={
-                "include": "AVAILABILITY",
-                "product": "POD",
-                "cloud": self.cfg.cloud_type,
-                "minCudaVersion": MIN_CUDA,
-            },
+            params={"include": "AVAILABILITY", **self._product, "minCudaVersion": MIN_CUDA},
         ).json()
         return listing
 
@@ -171,8 +153,18 @@ class RunPod:
 
     def price_per_hour(self, spec: LaunchSpec) -> float | None:
         gpu = self._request("GET", f"/v2/catalog/gpus/{quote(_gpu_id(spec), safe='')}").json()
-        price = gpu.get("price", {}).get(self.cfg.cloud_type.lower())
+        price = gpu.get("price", {}).get(self.price_key)
         return float(price) if price is not None else None
+
+    @property
+    def price_key(self) -> str:
+        """The key of this product's USD-per-hour rate in a catalogue GPU's `price`."""
+        return self.cfg.cloud_type.lower()
+
+    @property
+    def _product(self) -> dict[str, str]:
+        """Catalogue query for this product's stock."""
+        return {"product": "POD", "cloud": self.cfg.cloud_type}
 
     # -- helpers ------------------------------------------------------------------------
 
@@ -236,12 +228,7 @@ class RunPod:
         gpu = self._request(
             "GET",
             f"/v2/catalog/gpus/{quote(gpu_id, safe='')}",
-            params={
-                "include": "AVAILABILITY",
-                "product": "POD",
-                "cloud": self.cfg.cloud_type,
-                "minCudaVersion": MIN_CUDA,
-            },
+            params={"include": "AVAILABILITY", **self._product, "minCudaVersion": MIN_CUDA},
         ).json()
         return {
             dc["id"]: _AVAILABILITY_RANK.get(dc.get("availability", "NONE"), 0)
@@ -262,6 +249,24 @@ class RunPod:
     def _action(self, d: Deployment, action: str) -> Deployment:
         resp = self._request("POST", f"/v2/pods/{d.provider_id}/action", json={"action": action})
         return _apply(d, resp.json())
+
+    def _sse(self, route: str, follow: bool, tail: int) -> Iterator[str]:
+        """Container log lines from a Runpod log stream (Server-Sent Events)."""
+        timeout = httpx.Timeout(30.0, read=None if follow else 3.0)
+        params = {"source": "container", "tail": str(tail)}
+        try:
+            with self._http().stream("GET", route, params=params, timeout=timeout) as resp:
+                if not resp.is_success:
+                    resp.read()
+                    _raise(resp)
+                for raw in resp.iter_lines():
+                    if raw.startswith("data:") and (line := _log_line(raw[5:])) is not None:
+                        yield line
+        except httpx.ReadTimeout:
+            if follow:
+                raise
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"Runpod logs request failed: {exc}") from exc
 
     def _http(self) -> httpx.Client:
         if self._client is None:
@@ -303,17 +308,21 @@ def _arch(gpu: dict[str, Any]) -> Arch | None:
     return _POOL_ARCH.get(str(gpu.get("pool")).split("_")[0])
 
 
-def parse_gpus(listing: dict[str, Any], cloud_type: str) -> list[Gpu]:
-    """GPU types this cloud offers; `secure` and `community` flag which cloud has each type."""
-    cloud = cloud_type.lower()
+def parse_gpus(listing: dict[str, Any], price_key: str) -> list[Gpu]:
+    """NVIDIA GPUs with a `price_key` rate: `secure`, `community` or `serverless`.
+
+    `secure` and `community` also flag which pod cloud has each type; serverless types are the
+    ones in a pool, which the serverless adapter checks.
+    """
     found = []
     for g in listing["gpus"]:
-        price = (g.get("price") or {}).get(cloud)
+        price = (g.get("price") or {}).get(price_key)
         arch = _arch(g)
-        offered = g.get("manufacturer") == "NVIDIA" and g.get(cloud) and g.get("memory")
+        in_cloud = price_key == "serverless" or g.get(price_key)
+        offered = g.get("manufacturer") == "NVIDIA" and in_cloud and g.get("memory")
         if offered and price and arch:
             stock = _AVAILABILITY_RANK.get(g.get("availability", "NONE"), 0)
-            found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock))
+            found.append(Gpu(g["id"], float(g["memory"]), arch, float(price), stock, g.get("pool")))
     return found
 
 

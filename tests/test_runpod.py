@@ -286,5 +286,5 @@ def test_gpus_lists_only_types_the_cloud_offers() -> None:
            "secure": True, "community": False,
            "price": {"secure": 0.59, "community": 0.35}}  # fmt: skip
     listing = {"gpus": [a40]}
-    assert [g.id for g in parse_gpus(listing, "SECURE")] == ["NVIDIA A40"]
-    assert parse_gpus(listing, "COMMUNITY") == []
+    assert [g.id for g in parse_gpus(listing, "secure")] == ["NVIDIA A40"]
+    assert parse_gpus(listing, "community") == []

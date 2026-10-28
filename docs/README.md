@@ -10,6 +10,7 @@ ISO 8601; memory sizes are GiB (IEC 80000-13) unless a provider quotes GB.
 | How-to | [Override the catalogue](how-to/override-catalogue.md) | You need a new preset, a pinned vLLM image, or a new model name |
 | How-to | [Run without a cache volume](how-to/run-without-cache-volume.md) | You do not want storage billed between runs |
 | How-to | [Connect a client or coding agent](how-to/connect-a-client.md) | A deployment is ready |
+| How-to | [Launch on Runpod serverless](how-to/launch-on-serverless.md) | You want to pay only while requests are served |
 | Reference | [CLI](reference/cli.md) | Looking up a command or option |
 | Reference | [Configuration and files](reference/configuration.md) | Looking up a catalogue field, a path or the secrets lookup order |
 | Reference | [M4 benchmark plan](reference/benchmark-plan.md) | Looking up which runs M4 makes and what each measures |

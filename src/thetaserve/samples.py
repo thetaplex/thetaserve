@@ -12,14 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from thetaserve.options import ModelFacts, Weights, fetch_model
-from thetaserve.providers.base import Gpu
-from thetaserve.providers.runpod import parse_gpus
 
 FILE = "samples.json"
 _GPU_FIELDS = (
     "id", "manufacturer", "memory", "pool", "secure", "community", "price", "availability"
 )  # fmt: skip
-_CLOUDS = ("SECURE", "COMMUNITY")
 
 
 def load() -> dict[str, Any]:
@@ -27,8 +24,10 @@ def load() -> dict[str, Any]:
     return data
 
 
-def gpus(data: dict[str, Any], cloud_type: str) -> list[Gpu]:
-    return parse_gpus(data["runpod"][cloud_type], cloud_type)
+def listing(data: dict[str, Any], price_key: str) -> dict[str, Any]:
+    """The saved GPU catalogue for one product: `secure`, `community` or `serverless`."""
+    saved: dict[str, Any] = data["runpod"][price_key]
+    return saved
 
 
 def model(data: dict[str, Any], repo: str) -> tuple[ModelFacts, list[Weights]] | None:
@@ -43,15 +42,18 @@ def main() -> None:
     from thetaserve.config import load_catalog
     from thetaserve.providers import RUNPOD_SECRET
     from thetaserve.providers.runpod import RunPod
+    from thetaserve.providers.runpod_serverless import RunPodServerless
 
     with tempfile.TemporaryDirectory() as empty:  # built-in models only, not the user's
         catalog = load_catalog(Path(empty))
     cfg = catalog.providers.runpod
     key = secrets.get(RUNPOD_SECRET, env=cfg.api_key_env)
-    # Stock differs per cloud, so keep one listing for each.
-    listings = {
-        c: RunPod(cfg.model_copy(update={"cloud_type": c}), key).gpu_listing() for c in _CLOUDS
-    }
+    # Stock differs per cloud and for serverless, so keep one listing for each.
+    adapters = [
+        RunPod(cfg.model_copy(update={"cloud_type": c}), key) for c in ("SECURE", "COMMUNITY")
+    ]
+    adapters.append(RunPodServerless(cfg, key))  # keyed by price_key: secure, community, serverless
+    listings = {a.price_key: a.gpu_listing() for a in adapters}
     hf: dict[str, Any] = {}
     for m in catalog.models.values():
         # ponytail: trusted publishers only, so `up --any-publisher` offline shows the same
@@ -76,7 +78,7 @@ def main() -> None:
     }
     path = Path(__file__).parent / "catalog" / FILE
     path.write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
-    print(f"wrote {path}: {len(data['runpod']['SECURE']['gpus'])} GPUs, {len(hf)} models")
+    print(f"wrote {path}: {len(data['runpod']['secure']['gpus'])} GPUs, {len(hf)} models")
 
 
 if __name__ == "__main__":

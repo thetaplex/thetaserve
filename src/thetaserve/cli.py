@@ -25,6 +25,7 @@ from thetaserve.config import Catalog, ConfigError, KvCacheDtype, load_catalog
 from thetaserve.providers import RUNPOD_SECRET, Provider, ProviderError, get_provider
 from thetaserve.providers.base import Gpu
 from thetaserve.providers.runpod import RunPod
+from thetaserve.providers.runpod_serverless import RunPodServerless
 from thetaserve.spec import (
     API_KEY_ENV,
     DEFAULT_GPU_MEMORY_UTILIZATION,
@@ -342,7 +343,7 @@ def _pick(
         facts = replace(facts, kv_bytes_per_token=round(facts.kv_bytes_per_token * kv_scale))
         if bits is not None:
             weights = [w for w in weights if w.bits == bits]
-        gpus = samples.gpus(sample, adapter.cfg.cloud_type) if sample else adapter.gpus()
+        gpus = adapter.gpus(samples.listing(sample, adapter.price_key) if sample else None)
         if device is not None:
             gpus = _on_device(gpus, device)
         found = options.suggest(
@@ -358,7 +359,7 @@ def _pick(
         raise ResolveError(options.no_options(facts, preset, context))
     best = options.recommended(found, preset)
 
-    table = Table(title=f"{repo} for {use}, {catalog.providers.runpod.cloud_type} cloud")
+    table = Table(title=f"{repo} for {use}, {_tier(adapter)}")
     table.add_column("#", justify="right")
     table.add_column("GPU", no_wrap=True)
     table.add_column("weights")
@@ -423,6 +424,13 @@ def _pick(
     )
 
 
+def _tier(adapter: RunPod) -> str:
+    """The Runpod product the rates are for."""
+    if isinstance(adapter, RunPodServerless):
+        return "serverless (billed while a worker runs)"
+    return f"{adapter.cfg.cloud_type} cloud"
+
+
 def _model_source(catalog: Catalog, model: str) -> tuple[str, list[str], float]:
     """Base repo, family vLLM flags and KV scale for a catalogue key or a Hugging Face repo."""
     # ponytail: family flags come from the catalogue entry with the same base repo; DESIGN.md 5.4
@@ -463,13 +471,28 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> tuple[Deployment, str]:
 
     rate = adapter.price_per_hour(spec)
     rate_text = f"${rate:.2f}/h" if rate is not None else "unknown rate"
-    out.print(f"{spec.model} on {spec.provider} {spec.device}: {rate_text}, billed until stopped.")
-    out.print(
-        f"It stops itself after {_human(spec.idle_s)} idle or {_human(spec.max_life_s)} in "
-        f"total; `thetaserve start {spec.name}` resumes it."
-    )
-    api_key = secrets.new_api_key()
-    env = {API_KEY_ENV: api_key}
+    if isinstance(adapter, RunPodServerless):
+        out.print(
+            f"{spec.model} on {spec.provider} {spec.device}: {rate_text} while a worker runs. "
+            f"A request starts the worker; it stops after {_human(spec.idle_s)} idle."
+        )
+        # Runpod's gateway admits only a Runpod API key, so clients use it, not a vLLM key.
+        api_key = adapter.client_key() or ""
+        env: dict[str, str] = {}
+        err.print(
+            "[yellow]Clients use your Runpod API key. Give them a restricted key that can only "
+            "call this endpoint, not your full account key.[/yellow]"
+        )
+    else:
+        out.print(
+            f"{spec.model} on {spec.provider} {spec.device}: {rate_text}, billed until stopped."
+        )
+        out.print(
+            f"It stops itself after {_human(spec.idle_s)} idle or {_human(spec.max_life_s)} in "
+            f"total; `thetaserve start {spec.name}` resumes it."
+        )
+        api_key = secrets.new_api_key()
+        env = {API_KEY_ENV: api_key}
     if hf := secrets.get(HF_SECRET, env=HF_ENV):
         env[HF_ENV] = hf
 
@@ -486,7 +509,8 @@ def _launch(spec: LaunchSpec, adapter: Provider) -> tuple[Deployment, str]:
             secrets.delete(placeholder.secret_name)
             raise
     state.put(d)
-    out.print(f"Created {spec.provider} pod {d.provider_id}.")
+    kind = "endpoint" if isinstance(adapter, RunPodServerless) else "pod"
+    out.print(f"Created {spec.provider} {kind} {d.provider_id}.")
 
     try:
         with out.status("Waiting for the host to start…") as status:
@@ -613,7 +637,11 @@ def _bench_run(
 ) -> dict[str, object]:
     spec, base_url = d.spec, d.base_url or ""
     args = spec.vllm_args
-    cloud = catalog.providers.runpod.cloud_type
+    cloud = (
+        "SERVERLESS"
+        if isinstance(adapter, RunPodServerless)
+        else catalog.providers.runpod.cloud_type
+    )
     measured = bench.parse_startup(adapter.logs(d, follow=False, tail=2000))
     timeout = httpx.Timeout(30.0, read=300.0)
     auth = {"Authorization": f"Bearer {api_key}"}
@@ -690,6 +718,7 @@ def save_log(name: str, lines: list[str], api_key: str) -> Path:
 
 
 def _print_dry_run(spec: LaunchSpec, adapter: Provider) -> None:
+    serverless = isinstance(adapter, RunPodServerless)  # workers scale to zero; no max life
     fit = spec.fit
     summary = Table.grid(padding=(0, 2))
     for label, value in [
@@ -706,8 +735,8 @@ def _print_dry_run(spec: LaunchSpec, adapter: Provider) -> None:
             f"{fit.overhead_gb:.1f} = {fit.total_gb:.1f} of {fit.budget_gb:.1f} GiB usable",
         ),
         ("idle stop", f"{spec.idle_s // 60} min"),
-        ("max life", f"{spec.max_life_s / 3600:g} h"),
-        ("secrets", ", ".join(f"{k}={MASK}" for k in spec.secret_env) + f", {HF_ENV} if set"),
+        ("max life", "-" if serverless else f"{spec.max_life_s / 3600:g} h"),
+        ("secrets", ", ".join([*(f"{k}={MASK}" for k in spec.secret_env), f"{HF_ENV} if set"])),
     ]:
         summary.add_row(f"[bold]{label}[/bold]", escape(value))
 

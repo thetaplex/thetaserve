@@ -22,6 +22,7 @@ class Gpu:
     arch: Arch
     price: float  # USD per hour
     stock: int  # 0 none, 1 low, 2 medium, 3 high
+    pool: str | None = None  # Runpod serverless pool, e.g. AMPERE_48
 
 
 @dataclass(frozen=True)

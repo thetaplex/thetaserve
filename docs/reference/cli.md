@@ -27,7 +27,7 @@ The default is the cheapest row that meets the precision floor of the use case. 
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--provider` | required | `runpod` |
+| `--provider` | required | `runpod` (pods) or `runpod-serverless` (a serverless endpoint that scales to zero; see [Launch on Runpod serverless](../how-to/launch-on-serverless.md)) |
 | `--model` | required | Model key from `list models`, or a Hugging Face repository such as `Qwen/Qwen3.8-27B` |
 | `--device` | none | Runpod GPU ID, such as `NVIDIA A40`. Shows only the options on that GPU. Error if the GPU is unknown or sold out |
 | `--use` | `coding` | Preset from `presets.yaml`: `coding`, `chat`, `research` |
@@ -38,7 +38,7 @@ The default is the cheapest row that meets the precision floor of the use case. 
 | `--kv-cache-dtype` | `auto` and `fp8` | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2`. Shows only rows with this KV-cache precision |
 | `--any-publisher` | off | Also lists weights from publishers not in `publishers.yaml`, marked `(untrusted publisher)` |
 | `--extra-arg` | none | Extra `vllm serve` argument. Repeatable |
-| `--idle` | `30m` | Stop the pod after this duration with no request completed or running |
+| `--idle` | `30m` | Stop the pod after this duration with no request completed or running. On `runpod-serverless`, the idle timeout of the worker, maximum `1h` |
 | `--max-life` | `10h` | Stop the pod this duration after the container starts, with or without activity |
 | `--name` | `<model>-<gpu>` | Deployment name, for example `qwen3.8-27b-a40` |
 | `--dry-run` | off | Show the spec, the `vllm serve` command and the masked request. Create nothing |

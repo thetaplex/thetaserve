@@ -74,17 +74,34 @@ class LaunchSpec(BaseModel):
 
         exec makes vLLM the process that receives stop signals.
         """
-        writes = "".join(
-            f"cat > {GUARD_DIR}/thetaserve_{name}.py <<'EOF'\n"
-            f"{files('thetaserve').joinpath(f'{name}.py').read_text('utf-8')}EOF\n"
-            for name in ("guard", "watchdog")
-        )
         return (
-            f"mkdir -p {GUARD_DIR}\n{writes}"
+            f"mkdir -p {GUARD_DIR}\n{_host_files('guard', 'watchdog')}"
             f"python3 {GUARD_DIR}/thetaserve_watchdog.py {self.port} {self.idle_s} "
             f"{self.max_life_s} &\n"
             f"PYTHONPATH={GUARD_DIR}${{PYTHONPATH:+:$PYTHONPATH}} exec {self.command()}"
         )
+
+    def worker_script(self, health_port: int) -> str:
+        """Bash script for a Runpod serverless worker: start the health answer for the load
+        balancer, then exec vLLM (DESIGN.md section 8.3).
+
+        No key guard and no watchdog: Runpod's gateway checks the key, and Runpod scales an idle
+        worker to zero.
+        """
+        return (
+            f"mkdir -p {GUARD_DIR}\n{_host_files('healthcheck')}"
+            f"python3 {GUARD_DIR}/thetaserve_healthcheck.py {self.port} {health_port} &\n"
+            f"exec {self.command()}"
+        )
+
+
+def _host_files(*names: str) -> str:
+    """Shell here-documents that write these package modules to the host."""
+    return "".join(
+        f"cat > {GUARD_DIR}/thetaserve_{name}.py <<'EOF'\n"
+        f"{files('thetaserve').joinpath(f'{name}.py').read_text('utf-8')}EOF\n"
+        for name in names
+    )
 
 
 def estimate(
@@ -107,13 +124,20 @@ def estimate(
 
 
 def vllm_args(
-    repo: str, port: int, context: int, kv_dtype: KvCacheDtype, extra: list[str]
+    repo: str,
+    port: int,
+    context: int,
+    kv_dtype: KvCacheDtype,
+    extra: list[str],
+    *,
+    guarded: bool = True,
 ) -> list[str]:
+    """`vllm serve` arguments. `guarded`: vLLM checks the per-launch key, not the provider."""
+    key = ["--api-key", _API_KEY_REF, "--middleware", GUARD] if guarded else []
     return [
         repo,
         "--port", str(port),
-        "--api-key", _API_KEY_REF,
-        "--middleware", GUARD,
+        *key,
         "--max-model-len", str(context),
         "--kv-cache-dtype", kv_dtype,
         "--gpu-memory-utilization", str(DEFAULT_GPU_MEMORY_UTILIZATION),

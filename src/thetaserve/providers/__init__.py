@@ -4,6 +4,7 @@ from thetaserve import secrets
 from thetaserve.config import Catalog
 from thetaserve.providers.base import Endpoint, Provider, ProviderError
 from thetaserve.providers.runpod import RunPod
+from thetaserve.providers.runpod_serverless import RunPodServerless
 
 __all__ = ["Endpoint", "Provider", "ProviderError", "get_provider"]
 
@@ -16,6 +17,9 @@ def get_provider(name: str, catalog: Catalog) -> Provider:
         case "runpod":
             cfg = catalog.providers.runpod
             return RunPod(cfg, secrets.get(RUNPOD_SECRET, env=cfg.api_key_env))
+        case "runpod-serverless":  # same account, key and providers.yaml entry as runpod
+            cfg = catalog.providers.runpod
+            return RunPodServerless(cfg, secrets.get(RUNPOD_SECRET, env=cfg.api_key_env))
         case "aws":
             raise ProviderError("the AWS adapter comes after v0.1; use --provider runpod")
         case _:
