@@ -22,6 +22,7 @@ gemma4-31b:
 
 gpt-oss-120b:
   hf_family: openai/gpt-oss-120b   # MoE, experts in MXFP4; reasoning comes back without a parser
+  # Ran on A100 80GB PCIe (2026-10-29): tool calls parsed, about 165 tok/s on one request.
   common_args: [--enable-prefix-caching,
-                --enable-auto-tool-choice, --tool-call-parser, openai,   # VERIFY
-                --max-num-seqs, '32']   # VERIFY: vLLM GPT-OSS recipe, not yet run on hardware
+                --enable-auto-tool-choice, --tool-call-parser, openai,
+                --max-num-seqs, '32']

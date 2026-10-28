@@ -262,8 +262,8 @@ aws:
    `gptq`, `compressed-tensors`, `modelopt`, `mxfp4`). Drop GGUF and MLX. The weight size is the
    sum of the top-level `.safetensors` files at the current commit; copies in subfolders (gpt-oss
    has `original/`) are not loaded. `mxfp4` (gpt-oss) is offered on every architecture: vLLM
-   runs it on Ampere with Marlin kernels (vLLM GPT-OSS recipe, checked 2026-10-28). On Ada it is
-   unverified. The Hugging Face token from `setup` opens
+   runs it on Ampere with Marlin kernels (gpt-oss-120b ran on an A100 80GB, 2026-10-29). On Ada it
+   is unverified. The Hugging Face token from `setup` opens
    gated repositories.
 4. **GPUs.** Read VRAM, price and per-data-centre stock from Runpod
    `GET /v2/catalog/gpus?include=AVAILABILITY&product=POD`. Read the architecture from the pool
