@@ -70,6 +70,7 @@ def test_gemma4_full_attention_layers_use_their_own_kv_heads_and_head_size() -> 
     [
         (None, ("bf16", 16, False)),
         ({"quant_method": "fp8"}, ("fp8", 8, False)),
+        ({"quant_method": "mxfp4"}, ("mxfp4", 4, False)),  # gpt-oss; runs on Ampere too
         ({"quant_method": "awq", "bits": 4}, ("awq-int4", 4, False)),
         (  # Hub listings keep only `format` per group
             {"quant_method": "compressed-tensors", "config_groups": {

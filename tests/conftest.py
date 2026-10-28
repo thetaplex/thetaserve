@@ -135,6 +135,7 @@ def hub() -> Iterator[respx.MockRouter]:
                     "sha": f"{len(repo):040x}",
                     "siblings": [
                         {"rfilename": "model.safetensors", "size": int(gb * GIB)},
+                        {"rfilename": "original/model.safetensors", "size": int(gb * GIB)},
                         {"rfilename": "x.json"},
                     ],
                 }
