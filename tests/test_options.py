@@ -162,7 +162,7 @@ def test_up_lists_options_and_dry_runs_the_recommended_one(
     assert f"--revision {len('Qwen/Qwen3.8-27B-FP8'):040x}" in result.output
     assert "--tool-call-parser qwen3_xml" in result.output
     body = json.loads(result.output[result.output.index("{") :])
-    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1}
+    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1, "minCudaVersion": "13.0"}
     assert body["name"] == "thetaserve-qwen3.8-27b-rtx-a6000"
 
 

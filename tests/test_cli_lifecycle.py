@@ -113,6 +113,9 @@ def test_cloud_flag_selects_community_tier(mocked_runpod: respx.MockRouter) -> N
     body = json.loads(mocked_runpod["create"].calls.last.request.content)
     assert body["cloud"] == "COMMUNITY"
     assert "mounts" not in body
+    listing = mocked_runpod["gpus"].calls.last.request.url.params
+    assert listing["cloud"] == "COMMUNITY"
+    assert listing["minCudaVersion"] == "13.0"  # stock only on hosts that can run the image
 
 
 def test_up_refuses_duplicate_name(mocked_runpod: respx.MockRouter) -> None:

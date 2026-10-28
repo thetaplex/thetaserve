@@ -55,7 +55,7 @@ def test_plan_makes_no_requests_and_masks_secrets(runpod: RunPod, spec: LaunchSp
     body = runpod.plan(spec)
     assert not respx.calls
     assert body["env"]["VLLM_API_KEY"] == "****"
-    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1}
+    assert body["gpu"] == {"id": "NVIDIA RTX A6000", "count": 1, "minCudaVersion": "13.0"}
     assert body["ports"] == ["8000/http"]
     assert body["entrypoint"] == ["/bin/bash", "-c"]
     assert body["cmd"] == [spec.script()]
@@ -257,6 +257,7 @@ def test_community_cloud_launches_without_the_cache_volume(spec: LaunchSpec) -> 
     assert d.cost_per_hr == pytest.approx(0.33)  # community tier, not the secure price
     body = json.loads(create.calls.last.request.content)
     assert body["cloud"] == "COMMUNITY"
+    assert body["gpu"]["minCudaVersion"] == "13.0"  # 12.x hosts cannot run the vLLM image
     assert "mounts" not in body
     assert "dataCenterIds" not in body
     assert body["disk"] >= spec.fit.weights_gb  # the weights go on the container disk

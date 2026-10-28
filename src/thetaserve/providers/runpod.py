@@ -23,6 +23,10 @@ HF_HOME = f"{VOLUME_PATH}/huggingface"
 VLLM_CACHE_ROOT = f"{VOLUME_PATH}/vllm"
 MASK = "****"
 POLL_S = 5.0
+# vllm/vllm-openai:v0.32.0 is built on CUDA 13.0 with forward compatibility off, so it fails on a
+# host whose driver supports only CUDA 12.x (a Community Cloud A5000 with 12.4, 2026-10-28).
+# ponytail: one floor for the pinned image; derive it from the image if users pin others.
+MIN_CUDA = "13.0"
 _AVAILABILITY_RANK = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
 _FAILED = {"ERROR", "TERMINATED", "EXITED"}
 _POOL_ARCH: dict[str, Arch] = {
@@ -147,7 +151,12 @@ class RunPod:
         listing: dict[str, Any] = self._request(
             "GET",
             "/v2/catalog/gpus",
-            params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
+            params={
+                "include": "AVAILABILITY",
+                "product": "POD",
+                "cloud": self.cfg.cloud_type,
+                "minCudaVersion": MIN_CUDA,
+            },
         ).json()
         return listing
 
@@ -185,7 +194,7 @@ class RunPod:
             "ports": [f"{spec.port}/http"],
             "disk": self.cfg.container_disk_gb if volume_id else _disk_for_weights(spec, self.cfg),
             "cloud": self.cfg.cloud_type,
-            "gpu": {"id": _gpu_id(spec), "count": 1},
+            "gpu": {"id": _gpu_id(spec), "count": 1, "minCudaVersion": MIN_CUDA},
         }
         if volume_id:
             body["env"] = {"HF_HOME": HF_HOME, "VLLM_CACHE_ROOT": VLLM_CACHE_ROOT, **env}
@@ -227,7 +236,12 @@ class RunPod:
         gpu = self._request(
             "GET",
             f"/v2/catalog/gpus/{quote(gpu_id, safe='')}",
-            params={"include": "AVAILABILITY", "product": "POD", "cloud": self.cfg.cloud_type},
+            params={
+                "include": "AVAILABILITY",
+                "product": "POD",
+                "cloud": self.cfg.cloud_type,
+                "minCudaVersion": MIN_CUDA,
+            },
         ).json()
         return {
             dc["id"]: _AVAILABILITY_RANK.get(dc.get("availability", "NONE"), 0)

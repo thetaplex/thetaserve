@@ -1,5 +1,5 @@
 {
- "fetched": "2026-10-27",
+ "fetched": "2026-10-28",
  "runpod": {
   "SECURE": {
    "gpus": [
@@ -15,7 +15,7 @@
       "secure": 1.79,
       "serverless": 2.72
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA A100-SXM4-40GB",
@@ -42,7 +42,7 @@
       "secure": 1.79,
       "serverless": 2.72
      },
-     "availability": "LOW"
+     "availability": "MEDIUM"
     },
     {
      "id": "NVIDIA A40",
@@ -56,7 +56,7 @@
       "secure": 0.59,
       "serverless": 1.22
      },
-     "availability": "LOW"
+     "availability": "HIGH"
     },
     {
      "id": "NVIDIA B200",
@@ -137,7 +137,7 @@
       "secure": 0.5,
       "serverless": 0.69
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA GeForce RTX 3090 Ti",
@@ -203,7 +203,7 @@
       "secure": 0.89,
       "serverless": 1.1
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA GeForce RTX 5080",
@@ -244,7 +244,7 @@
       "secure": 3.99,
       "serverless": 4.79
      },
-     "availability": "LOW"
+     "availability": "MEDIUM"
     },
     {
      "id": "NVIDIA H100 NVL",
@@ -272,7 +272,7 @@
       "secure": 2.89,
       "serverless": 4.79
      },
-     "availability": "LOW"
+     "availability": "NONE"
     },
     {
      "id": "NVIDIA H200",
@@ -286,7 +286,7 @@
       "secure": 5.29,
       "serverless": 5.93
      },
-     "availability": "LOW"
+     "availability": "MEDIUM"
     },
     {
      "id": "NVIDIA H200 NVL",
@@ -327,7 +327,7 @@
       "secure": 0.82,
       "serverless": 1.75
      },
-     "availability": "LOW"
+     "availability": "NONE"
     },
     {
      "id": "NVIDIA L40S",
@@ -369,7 +369,7 @@
       "secure": 0.28,
       "serverless": 0.58
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA RTX 4000 SFF Ada Generation",
@@ -505,7 +505,7 @@
       "secure": 0.72,
       "serverless": 1.15
      },
-     "availability": "LOW"
+     "availability": "MEDIUM"
     },
     {
      "id": "NVIDIA RTX PRO 4500 Blackwell Server Edition",
@@ -559,7 +559,7 @@
       "secure": 2.49,
       "serverless": 3.49
      },
-     "availability": "LOW"
+     "availability": "HIGH"
     },
     {
      "id": "NVIDIA RTX PRO 6000 Blackwell Server Edition MIG 1g.24gb",
@@ -601,7 +601,7 @@
       "secure": 2.59,
       "serverless": 3.49
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "Tesla V100-PCIE-16GB",
@@ -645,7 +645,7 @@
       "secure": 1.79,
       "serverless": 2.72
      },
-     "availability": "LOW"
+     "availability": "NONE"
     },
     {
      "id": "NVIDIA A100-SXM4-40GB",
@@ -672,7 +672,7 @@
       "secure": 1.79,
       "serverless": 2.72
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA A40",
@@ -727,7 +727,7 @@
       "community": 0.13,
       "secure": 0
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA GeForce RTX 3080",
@@ -753,7 +753,7 @@
       "community": 0.18,
       "secure": 0
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA GeForce RTX 3090",
@@ -767,7 +767,7 @@
       "secure": 0.5,
       "serverless": 0.69
      },
-     "availability": "LOW"
+     "availability": "NONE"
     },
     {
      "id": "NVIDIA GeForce RTX 3090 Ti",
@@ -916,7 +916,7 @@
       "secure": 5.29,
       "serverless": 5.93
      },
-     "availability": "LOW"
+     "availability": "NONE"
     },
     {
      "id": "NVIDIA H200 NVL",
@@ -1066,7 +1066,7 @@
       "secure": 0.25,
       "serverless": 0.58
      },
-     "availability": "NONE"
+     "availability": "LOW"
     },
     {
      "id": "NVIDIA RTX A4500",
@@ -1257,7 +1257,7 @@
       "community": 0.23,
       "secure": 0
      },
-     "availability": "LOW"
+     "availability": "NONE"
     }
    ]
   }

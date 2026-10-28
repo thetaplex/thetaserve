@@ -15,7 +15,9 @@ name overrides them. Its top-level keys replace all of the built-in entry with t
 ## models.yaml
 
 Top level: `schema_version: 2` (built-in only) and `vllm_image`, the image and tag for all
-launches. `up` refuses an image that contains `TODO`.
+launches. `up` refuses an image that contains `TODO`. The Runpod adapter asks for hosts with
+CUDA 13.0 or later, which the built-in image needs. If you set an image with a different CUDA
+version, the floor does not change (DESIGN.md section 8.1).
 
 | Field | Type | Meaning |
 | --- | --- | --- |

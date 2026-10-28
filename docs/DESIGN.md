@@ -375,7 +375,7 @@ hold them. `up` stores the per-launch vLLM key in the secrets store as
   `GET /v2/catalog/gpus?include=AVAILABILITY&product=POD` (all GPUs, for options) and
   `GET /v2/catalog/gpus/{id}?include=AVAILABILITY&product=POD` (price and per-data-centre stock
   of one GPU). On `429`, wait for `Retry-After` and try again.
-- Create body: `gpu {id, count}`, `image`, `entrypoint ["/bin/bash","-c"]` and
+- Create body: `gpu {id, count, minCudaVersion}`, `image`, `entrypoint ["/bin/bash","-c"]` and
   `cmd ["exec vllm serve ..."]`, so that `$VLLM_API_KEY` expands from the pod's environment;
   `env`, `ports ["<port>/http"]`, `disk`, `cloud`, `mounts.network [{volumeId, path}]`,
   `dataCenterIds [<volume's data centre>]`. Create does not search for capacity and does not
@@ -405,6 +405,13 @@ hold them. `up` stores the per-launch vLLM key in the secrets store as
 - Community Cloud pods cannot mount a network volume (Runpod network-volume documentation,
   checked 2026-10-25). On `COMMUNITY`, `up` ignores `network_volume`, tells you, and launches
   without a weights cache and without a data-centre pin, as with `network_volume: null`.
+- CUDA floor: `vllm/vllm-openai:v0.32.0` is built on CUDA 13.0 and turns off forward
+  compatibility. A host whose driver supports only CUDA 12.x fails at start. The create body
+  sends `gpu.minCudaVersion: "13.0"`, and the stock lookups send `minCudaVersion=13.0`, so the
+  options show only hosts that can run the image. Smoke test, 2026-10-28: a Community Cloud RTX
+  A5000 with a CUDA 12.4 driver failed with "The NVIDIA driver on your system is too old". On
+  that day, all Secure Cloud hosts had CUDA 13.x, and most Community Cloud stock had 12.x.
+  The floor is in the adapter (`MIN_CUDA`); change it together with `vllm_image`.
 
 ### 8.2 AWS (`aws` extra)
 
