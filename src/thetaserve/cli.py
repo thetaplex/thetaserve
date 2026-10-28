@@ -364,7 +364,7 @@ def _pick(
     table.add_column("$/h", justify="right")
     table.add_column("stock")
     for i, o in enumerate(found):
-        rate = options.tokens_per_s(o, catalog.bandwidth, gpus, weights)
+        rate = options.tokens_per_s(o, catalog.bandwidth, gpus, weights, facts)
         untrusted = not options.trusted(o.weights.repo, repo, catalog.publishers)
         table.add_row(
             str(i + 1),
@@ -388,7 +388,8 @@ def _pick(
         f"{DEFAULT_OVERHEAD_GB:g} GiB overhead, of VRAM x "
         f"{DEFAULT_GPU_MEMORY_UTILIZATION:g} usable.\n"
         f"tok/s = one request at short context, {options.DECODE_EFFICIENCY:.0%} of memory "
-        "bandwidth / weight size (4-bit timed as 8-bit); an estimate, not yet measured."
+        "bandwidth / weights read per token (4-bit timed as 8-bit; MoE: active experts only); "
+        "an estimate, not yet measured."
     )
     if preset.tools and "--tool-call-parser" not in common_args:
         out.print(

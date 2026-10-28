@@ -236,18 +236,19 @@ def test_device_limits_the_options_to_that_gpu(
 
 def test_tokens_per_s_reads_every_weight_once_4bit_as_8bit_and_slices_share_bandwidth() -> None:
     a40 = suggest(FACTS, WEIGHTS[1:2], [Gpu("NVIDIA A40", 48, "ampere", 0.59, 3)], CODING)[0]
-    rate = tokens_per_s(a40, {"NVIDIA A40": 696}, [a40.gpu], WEIGHTS)
+    rate = tokens_per_s(a40, {"NVIDIA A40": 696}, [a40.gpu], WEIGHTS, FACTS)
     assert rate == pytest.approx(DECODE_EFFICIENCY * 696e9 / (28.75 * GIB))
 
     parent = Gpu("NVIDIA B300 SXM6 AC", 288, "blackwell", 8.99, 0)
     piece = Gpu("NVIDIA B300 SXM6 AC MIG 1g.36gb", 36, "blackwell", 0.5, 1)
     sliced = suggest(FACTS, WEIGHTS[2:3], [parent, piece], CHAT)[0]
     bandwidth = {"NVIDIA B300 SXM6 AC": 8000.0}
-    assert tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS) == pytest.approx(
+    assert tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS, FACTS) == pytest.approx(
         DECODE_EFFICIENCY * 1000e9 / (28.75 * GIB)
     )
-    assert tokens_per_s(sliced, {}, [parent, piece], WEIGHTS) is None
-    alone = tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS[2:3])  # no 8-bit to compare
+    assert tokens_per_s(sliced, {}, [parent, piece], WEIGHTS, FACTS) is None
+    # No 8-bit variant to compare with.
+    alone = tokens_per_s(sliced, bandwidth, [parent, piece], WEIGHTS[2:3], FACTS)
     assert alone == pytest.approx(DECODE_EFFICIENCY * 1000e9 / (18.12 * GIB))
 
 
@@ -259,3 +260,26 @@ def test_kv_scale_from_the_catalogue_raises_the_kv_estimate(hub: respx.MockRoute
     assert result.exit_code == 0, result.output
     # Sample facts: 80 KiB/token + 0.8 GiB fixed; x1.5 per token at 131,072 tokens, FP8 KV.
     assert "KV 7.9 " in result.output
+
+
+# openai/gpt-oss-120b config.json, the fields the estimate reads.
+GPT_OSS_CONFIG = {
+    "num_attention_heads": 64, "head_dim": 64, "num_key_value_heads": 8, "hidden_size": 2880,
+    "intermediate_size": 2880, "num_hidden_layers": 36, "max_position_embeddings": 131072,
+    "num_local_experts": 128, "num_experts_per_tok": 4, "vocab_size": 201088,
+    "tie_word_embeddings": False,
+}  # fmt: skip
+
+
+def test_tokens_per_s_reads_only_active_experts_of_moe() -> None:
+    facts = model_facts("openai/gpt-oss-120b", GPT_OSS_CONFIG)
+    assert facts.active_share == 4 / 128
+    # 36 layers x attention + untied embeddings, 2.11 B parameters at BF16.
+    assert facts.dense_gb == pytest.approx(3.93, abs=0.01)
+    assert model_facts("Qwen/Qwen3.8-27B", QWEN_CONFIG).active_share == 1.0
+
+    weights = [Weights("openai/gpt-oss-120b", "mxfp4", 4, 60.77)]
+    a100 = suggest(facts, weights, [Gpu("NVIDIA A100 80GB PCIe", 80, "ampere", 1.79, 3)], CODING)
+    rate = tokens_per_s(a100[0], {"NVIDIA A100 80GB PCIe": 1935}, [a100[0].gpu], weights, facts)
+    # Measured 165 tok/s on this GPU (2026-10-29); counting every weight gave 18.
+    assert rate == pytest.approx(189, abs=1)
