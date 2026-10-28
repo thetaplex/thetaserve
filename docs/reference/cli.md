@@ -63,7 +63,9 @@ Columns:
   VRAM × 0.92.
 - `tok/s`: estimate for one request at short context, 0.6 × memory bandwidth
   (`bandwidth.yaml`) ÷ weight size. Rows below 8 bits use the size of the smallest 8-bit
-  variant. `?` when the bandwidth of the GPU is not known.
+  variant. For a mixture-of-experts model, the weight size counts only the experts that one
+  token uses, plus all weights outside the experts. `?` when the bandwidth of the GPU is not
+  known.
 
 These values are estimates, not measurements.
 

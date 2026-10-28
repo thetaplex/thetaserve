@@ -283,7 +283,11 @@ aws:
    `--min-precision` removes lower precisions from the table.
 8. **Speed estimate.** `tok/s` = 0.6 × memory bandwidth ÷ weight size, for one request at short
    context. Rows below 8 bits use the size of the smallest 8-bit variant, because unpacking
-   4-bit weights costs about as much time as the smaller read saves. `?` when the bandwidth is
+   4-bit weights costs about as much time as the smaller read saves. For a mixture-of-experts
+   model, the size is the weights outside the routed experts (attention, embeddings, dense and
+   shared MLP layers, from `config.json`, at BF16) plus the active share of the rest
+   (`num_experts_per_tok` ÷ the number of experts). gpt-oss-120b on an A100 80GB PCIe: estimate
+   189, measured 165 tok/s (2026-10-29). `?` when the bandwidth is
    not known. The 0.6 factor is a guess until `bench` measures it.
 9. **Render.** `vllm serve <repo> --revision <hash> --port <port> --api-key $VLLM_API_KEY
    --max-model-len N --kv-cache-dtype D --gpu-memory-utilization 0.92 <family args> <extra args>`.

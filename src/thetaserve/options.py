@@ -43,6 +43,8 @@ class ModelFacts:
     max_context: int
     kv_bytes_per_token: int  # BF16, full-attention layers
     kv_fixed_bytes: int  # BF16, sliding-window layers at full window
+    dense_gb: float = 0.0  # GiB at BF16 outside the routed experts; 0 for a dense model
+    active_share: float = 1.0  # routed experts a token uses / all routed experts
 
 
 @dataclass(frozen=True)
@@ -140,7 +142,34 @@ def model_facts(repo: str, config: dict[str, Any]) -> ModelFacts:
     full = sum(kind == "full_attention" for kind in types)
     sliding = sum(kind == "sliding_attention" for kind in types)
     window = t.get("sliding_window") or 0
-    return ModelFacts(repo, max_context, per_global * full, per_layer * sliding * window)
+    dense_gb, active_share = _moe(t, heads, head_dim, kv_heads)
+    return ModelFacts(
+        repo, max_context, per_global * full, per_layer * sliding * window, dense_gb, active_share
+    )
+
+
+def _moe(t: dict[str, Any], heads: int, head_dim: int, kv_heads: int) -> tuple[float, float]:
+    """(GiB at BF16 outside the routed experts, share of routed experts a token uses).
+
+    (0.0, 1.0) for a dense model: every weight is read for each token.
+    """
+    experts = t.get("num_local_experts") or t.get("num_experts") or t.get("n_routed_experts")
+    per_token = t.get("num_experts_per_tok") or t.get("experts_per_token")
+    if not experts or not per_token:
+        return 0.0, 1.0
+    # ponytail: standard attention sizes; MLA (DeepSeek) is smaller, so its estimate runs slow.
+    h, layers = t["hidden_size"], t["num_hidden_layers"]
+    dense_layers = (t.get("first_k_dense_replace") or 0) + len(t.get("mlp_only_layers") or [])
+    expert_mlp = 3 * h * (t.get("moe_intermediate_size") or t["intermediate_size"])
+    attention = 2 * h * heads * head_dim + 2 * h * kv_heads * head_dim
+    embeddings = t["vocab_size"] * h * (1 if t.get("tie_word_embeddings") else 2)
+    params = (
+        layers * attention
+        + embeddings
+        + dense_layers * 3 * h * t["intermediate_size"]
+        + (layers - dense_layers) * (t.get("n_shared_experts") or 0) * expert_mlp
+    )
+    return params * 2 / GIB, per_token / experts
 
 
 def quantization(qc: dict[str, Any] | None) -> tuple[str, int, bool] | None:
@@ -220,10 +249,16 @@ def recommended(found: list[Option], preset: Preset) -> int:
 
 
 def tokens_per_s(
-    option: Option, bandwidth: dict[str, float], gpus: list[Gpu], weights: list[Weights]
+    option: Option,
+    bandwidth: dict[str, float],
+    gpus: list[Gpu],
+    weights: list[Weights],
+    facts: ModelFacts,
 ) -> float | None:
-    """Estimated decode speed of one request: each token reads every weight once.
+    """Estimated decode speed of one request: each token reads the weights it uses once.
 
+    A mixture-of-experts token reads the weights outside the routed experts, sized at BF16, and
+    `active_share` of the rest.
     Ignores KV-cache reads, so it is an upper bound that falls as the context fills. Weights
     below 8 bits are timed as the smallest 8-bit variant: unpacking them costs about what the
     smaller read saves, and INT4 measured slower than FP8 on vLLM (imec, 2026-10).
@@ -240,6 +275,8 @@ def tokens_per_s(
     read_gb = option.weights.gb
     if option.weights.bits < 8:
         read_gb = min((w.gb for w in weights if w.bits >= 8), default=read_gb)
+    dense = min(facts.dense_gb, read_gb)
+    read_gb = dense + (read_gb - dense) * facts.active_share
     return DECODE_EFFICIENCY * gbps * 1e9 / (read_gb * GIB)
 
 

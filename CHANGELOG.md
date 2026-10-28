@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The `tok/s` estimate of a mixture-of-experts model counts only the experts that one token uses. Before, gpt-oss-120b showed about 18 tok/s on an A100 80GB; it decoded 165.
 - The weight size counts only top-level `.safetensors` files. Before, a copy in a subfolder (gpt-oss `original/`) doubled it.
 - On Community Cloud, `up` launches without the cache volume, which Runpod attaches only to Secure Cloud pods, and says so.
 - `up` and `bench` list only the GPU types that the selected cloud tier offers. Runpod gives a Community price for some Secure-only types, such as the A40, and these showed as Community options. `samples.json` now holds a listing for each tier.
