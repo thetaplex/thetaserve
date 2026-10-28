@@ -55,3 +55,21 @@ def test_mask_hides_most_of_the_value() -> None:
 def test_no_real_keyring_touched() -> None:
     assert isinstance(keyring.get_keyring(), MemoryKeyring)
     assert "RUNPOD_API_KEY" not in os.environ
+
+
+def test_setup_uses_env_else_prompts_and_stores(monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    from thetaserve.cli import app
+
+    monkeypatch.setenv("RUNPOD_API_KEY", "from-env")
+    result = CliRunner().invoke(app, ["setup"], input="hf-typed\n")
+    assert result.exit_code == 0, result.output
+    assert "using $RUNPOD_API_KEY" in result.output
+    assert secrets.get("runpod") is None
+    assert secrets.get("hf") == "hf-typed"
+
+    # Run again: the stored token is kept on Enter, for every credential alike.
+    result = CliRunner().invoke(app, ["setup"], input="\n")
+    assert "Hugging Face token (Enter keeps the stored one)" in result.output
+    assert secrets.get("hf") == "hf-typed"

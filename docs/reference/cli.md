@@ -8,8 +8,11 @@ Durations (`--idle`, `--max-life`) use the units `s`, `m` and `h`, for example `
 
 ## setup
 
-Stores the Runpod API key and an optional Hugging Face token. Skips a prompt when
-`RUNPOD_API_KEY` or `HF_TOKEN` is set. Needs an interactive terminal.
+Stores the Runpod API key and an optional Hugging Face token. For each one, `setup` uses the
+environment variable (`RUNPOD_API_KEY`, `HF_TOKEN`) when it is set, and does not ask. Otherwise
+it asks for the value and stores it. Press Enter to keep a stored value. An environment
+variable has priority over a stored value, so remove a variable that holds an old value. Needs
+an interactive terminal.
 
 ## list
 
