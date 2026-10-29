@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-29
+
+### Fixed
+
+- The README status line is shorter. On PyPI, the 0.2.0 version of it showed with broken spacing.
+
 ## [0.2.0] - 2026-10-29
 
 ### Added
@@ -59,6 +65,7 @@ First beta release, Runpod only.
 
 - The memory overhead in the fit check is 3.2 GiB, measured, instead of an estimated 2 GiB.
 
-[Unreleased]: https://github.com/thetaplex/thetaserve/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/thetaplex/thetaserve/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/thetaplex/thetaserve/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thetaplex/thetaserve/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/thetaplex/thetaserve/releases/tag/v0.1.0
