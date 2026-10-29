@@ -6,7 +6,7 @@
 
 thetaserve launches an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU. One command gives you a secured, OpenAI-compatible endpoint.
 
-> **Status: beta (v0.1.0).** Runpod only. On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. Pods stop themselves when idle (`--idle`, default 30 min) or after `--max-life` (default 10 h). See the [build order](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md#12-build-order).
+> **Status: beta (v0.2.0).** Runpod only, Secure Cloud or Community Cloud. On 2026-10-22 it served Qwen3.8-27B from a 48 GB A40 at $0.59/h to a coding agent. On 2026-10-29 it served gpt-oss-120b from one A100 80GB at $1.79/h. Pods stop themselves when idle (`--idle`, default 30 min) or after `--max-life` (default 10 h). See the [build order](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md#12-build-order).
 
 ## Why
 
