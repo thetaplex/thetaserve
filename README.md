@@ -6,7 +6,7 @@
 
 thetaserve launches an open-weight model with [vLLM](https://docs.vllm.ai) on a rented GPU. One command gives you a secured, OpenAI-compatible endpoint.
 
-> **Status: beta (v0.2.0).** Runpod only: Secure Cloud and Community Cloud. See the [build order](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md#12-build-order).
+> **Status: beta (v0.2.1).** Runpod only: Secure Cloud and Community Cloud. See the [build order](https://github.com/thetaplex/thetaserve/blob/main/docs/DESIGN.md#12-build-order).
 
 ## Why
 
