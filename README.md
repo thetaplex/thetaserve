@@ -58,6 +58,7 @@ To add or change presets, models or providers, put a YAML file with the same nam
 - [Contributing](https://github.com/thetaplex/thetaserve/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/thetaplex/thetaserve/blob/main/CHANGELOG.md)
 - [Security policy](https://github.com/thetaplex/thetaserve/blob/main/SECURITY.md)
+- [Lantern Works](https://thelanternworks.com/?ref=readme-thetaserve) — free cross-provider GPU rental price comparison (cited rates, job-cost estimates, MCP) to sanity-check RunPod options against other providers before `up`
 
 ## License
 
